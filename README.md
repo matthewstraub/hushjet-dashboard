@@ -1,7 +1,8 @@
 # hushjet-dashboard
 
 A web dashboard for a Dyson HushJet Purifier Compact (HJ10): current air
-quality and filter life, read live from the purifier, and their history. It
+quality and filter life, read live from the purifier, and their history,
+including the 15-minute averages Dyson keeps for the MyDyson app. It
 uses the same stack as the PetLibro and Dexcom dashboards: a Vite, React and
 Recharts client, an Express and tRPC server, Drizzle on TiDB, password
 sign-in, and a free Render web service.
@@ -17,7 +18,7 @@ which Dyson can change without notice.
 | `server/` | Express and tRPC. `server/_core/` holds sign-in, sessions and security headers, from the Dexcom app |
 | `server/dyson/` | The Dyson client: App API calls, the AWS IoT connection and the message parser, ported from the CLI |
 | `shared/` | Code and types the client and server share |
-| `drizzle/` | The `readings` table and its migrations |
+| `drizzle/` | The `readings` and `history_slots` tables and their migrations |
 | `cli/` | The Python `hushjet` CLI: Dyson login, the device list, and live MQTT on the home network or through Dyson's cloud. See [cli/README.md](cli/README.md) |
 
 ## How a reading works
@@ -32,6 +33,20 @@ nor the sync needs to be on the purifier's network. The dashboard reuses a
 reading for a minute, refreshes an open tab every two minutes, and does a new
 read when you press Refresh. Every new reading is stored when `DATABASE_URL`
 is set.
+
+## History
+
+Dyson's cloud keeps 15-minute averages of the purifier for the MyDyson app's
+charts: PM2.5, PM10, an air quality index, the fan's average speed, and how
+long the fan ran (`/v1/messageprocessor/devices/{serial}/environmentdata/daily`).
+It covers only the current week, from Sunday at midnight in the account's
+time zone, so a new week presumably starts empty. Every `pnpm sync` copies
+the whole week into the `history_slots` table, updating the newest slot as it
+fills in, and loading the charts does the same, at most every ten minutes.
+Slots that aren't copied before their week ends are likely lost.
+
+The charts use those slots for PM and fan speed. Filter life isn't in Dyson's
+history, so it comes from the stored readings.
 
 ## Run it locally
 
@@ -56,14 +71,14 @@ npx pnpm@10.4.1 dev
 
 The dashboard runs at http://localhost:3000, or the next free port; set `PORT`
 to choose. Without a `.env`, sign-in is off and history says it needs a
-database. With `DATABASE_URL` in `.env`, this creates the readings table, and
-the dev server picks the database up on its next start:
+database. With `DATABASE_URL` in `.env`, this creates the tables, and the dev
+server picks the database up on its next start:
 
 ```bash
 npx pnpm@10.4.1 db:push
 ```
 
-To take one reading from the command line:
+To copy the week's history and take one reading from the command line:
 
 ```bash
 npx pnpm@10.4.1 sync
@@ -74,9 +89,9 @@ npx pnpm@10.4.1 sync
 | Script | What it does |
 | --- | --- |
 | `dev` | The server with Vite middleware and hot reload |
-| `sync` | Takes one reading through Dyson's cloud and stores it. `sync --ci` is the scheduled job's version |
+| `sync` | Copies the week's 15-minute history from Dyson's cloud and takes one reading, storing both. `sync --ci` is the scheduled job's version |
 | `check` | TypeScript typecheck |
-| `test` | Vitest: the Dyson client against the CLI's real HJ10 capture, sessions, routers |
+| `test` | Vitest: the Dyson client against real HJ10 captures and history, the stores, sessions, routers |
 | `build` | The client into `dist/public`, the server into `dist/index.js` |
 | `start` | Runs the production build |
 | `db:push` | Generates and applies Drizzle migrations to `DATABASE_URL` |
@@ -121,11 +136,17 @@ python3 -c 'import json, pathlib; print(json.loads((pathlib.Path.home() / ".conf
 
 Until `DATABASE_URL` and `DYSON_TOKEN` are set, each run posts a notice and
 skips the sync, so there are no failure emails before TiDB exists. This repo
-is public, so its Actions logs are too: `--ci` prints only that a reading was
-stored, never the values or the device name, and it fails rather than passes
-when the database can't be used. Each secret reaches only the step that uses
+is public, so its Actions logs are too: `--ci` prints only how many history
+slots it stored and when the reading was taken, never the values or the
+device name. It fails rather than passes when the database can't be used, or
+when either the history or the reading fails, after storing the other. Each secret reaches only the step that uses
 it. GitHub pauses schedules in a public repo after 60 days without a commit;
 a healthcheck notices, and the Actions tab re-enables it.
+
+GitHub also runs scheduled workflows late and skips many runs. Each run copies
+the whole week, so the history only loses slots when no run, and no visit to
+the dashboard, comes after them before the week ends; readings have gaps
+wherever runs were skipped.
 
 ## Deployment
 

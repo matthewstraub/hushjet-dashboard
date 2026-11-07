@@ -84,6 +84,19 @@ export class DysonAppApi {
     return data;
   }
 
+  /**
+   * The current week's 15-minute history, the data behind the MyDyson app's
+   * charts: start_time, resolution and one array per series. See history.ts.
+   * Null when Dyson has none.
+   */
+  async environmentHistory(serial: string): Promise<JsonObject | null> {
+    const path = `/v1/messageprocessor/devices/${encodeURIComponent(serial)}/environmentdata/daily`;
+    const data = await this.send("GET", path);
+    if (data === null) return null;
+    if (!isObject(data)) throw new DysonApiError("The history response wasn't an object");
+    return data;
+  }
+
   private async send(
     method: "GET" | "POST",
     path: string,
@@ -122,6 +135,7 @@ export class DysonAppApi {
     if (!response.ok) throw new DysonApiError(`${method} ${path} returned ${status}`, status);
 
     const text = await response.text();
+    if (status === 204 || !text.trim()) return null; // No content, e.g. no history yet.
     try {
       return JSON.parse(text);
     } catch {

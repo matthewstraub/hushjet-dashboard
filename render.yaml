@@ -22,6 +22,6 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
-      # For the dashboard's live reading. The token from `hushjet login` in cli/.
+      # For live readings and copying Dyson's history. The token from `hushjet login` in cli/.
       - key: DYSON_TOKEN
         sync: false

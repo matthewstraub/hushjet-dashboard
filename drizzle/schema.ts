@@ -1,11 +1,13 @@
 import {
   boolean,
   datetime,
+  double,
   index,
   int,
   json,
   mysqlTable,
   smallint,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
 
@@ -43,3 +45,32 @@ export const readings = mysqlTable(
 
 export type ReadingRow = typeof readings.$inferSelect;
 export type NewReadingRow = typeof readings.$inferInsert;
+
+/**
+ * Dyson's 15-minute history of the purifier, one row per slot: averages over
+ * the slot, as the MyDyson app charts them (see server/dyson/history.ts).
+ * Dyson keeps only the current week, so `pnpm sync` and the dashboard copy it
+ * here, updating the newest slot as it fills in. Times are UTC.
+ */
+export const historySlots = mysqlTable(
+  "history_slots",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    serial: varchar("serial", { length: 32 }).notNull(),
+    slotStart: datetime("slot_start", { mode: "date" }).notNull(),
+    pm25: double("pm25"),
+    pm10: double("pm10"),
+    /** Dyson's air quality index. */
+    aqi: double("aqi"),
+    /** Average fan speed, 1 to 10. */
+    fanSpeed: double("fan_speed"),
+    /** Seconds the fan ran, out of the slot's 900. */
+    runSeconds: smallint("run_seconds"),
+  },
+  table => [
+    uniqueIndex("history_slots_by_time").on(table.serial, table.slotStart),
+  ]
+);
+
+export type HistorySlotRow = typeof historySlots.$inferSelect;
+export type NewHistorySlotRow = typeof historySlots.$inferInsert;
