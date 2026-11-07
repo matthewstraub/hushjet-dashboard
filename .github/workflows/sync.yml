@@ -1,0 +1,108 @@
+name: HushJet Sync
+
+# Takes one reading through Dyson's cloud every 15 minutes and stores it in
+# TiDB. The purifier keeps no history, so this is where the dashboard's history
+# comes from. It runs here rather than on Render so the free Render service
+# isn't woken every 15 minutes: the 750 free instance hours a month are shared
+# with the other dashboards. In a public repo these runs cost nothing.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   DATABASE_URL     The TiDB connection string, ending ?ssl={"rejectUnauthorized":true}
+#   DYSON_TOKEN      The token `hushjet login` saved (run it in cli/)
+#   DYSON_SERIAL     Optional: only when the account has more than one HushJet
+#   HEALTHCHECK_URL  Optional: a healthchecks.io ping URL, to hear about failures
+#
+# Until DATABASE_URL and DYSON_TOKEN are set, each run says so and skips the
+# sync. GitHub pauses schedules in a public repo after 60 days without a commit;
+# a healthcheck notices the missing pings, and re-enabling is one click on the
+# Actions tab. Each secret is passed only to the steps that use it.
+
+on:
+  schedule:
+    # Every 15 minutes, off the quarter hours to dodge GitHub's busiest minutes.
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch: # Run it by hand from the Actions tab.
+
+# Never two at once; a new run waits for the one in progress.
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    outputs:
+      ready: ${{ steps.secrets.outputs.ready }}
+      healthcheck: ${{ steps.secrets.outputs.healthcheck }}
+    steps:
+      - name: Check the secrets
+        id: secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DYSON_TOKEN: ${{ secrets.DYSON_TOKEN }}
+          HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+        run: |
+          if [ -n "$DATABASE_URL" ] && [ -n "$DYSON_TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Set the DATABASE_URL and DYSON_TOKEN repository secrets to start recording readings."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$HEALTHCHECK_URL" ]; then
+            echo "healthcheck=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "healthcheck=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  sync:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Signal start
+        if: needs.check.outputs.healthcheck == 'true'
+        continue-on-error: true
+        env:
+          HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+        run: curl -fsS -m 10 --retry 3 "$HEALTHCHECK_URL/start" > /dev/null
+
+      - uses: actions/checkout@v7
+
+      # Installs the pnpm version pinned in package.json's packageManager.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # --ci keeps the reading out of this log, which is public, and fails
+      # when the database can't be used instead of skipping the save.
+      - name: Take a reading
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DYSON_TOKEN: ${{ secrets.DYSON_TOKEN }}
+          DYSON_SERIAL: ${{ secrets.DYSON_SERIAL }}
+        run: pnpm sync --ci
+
+      - name: Signal success
+        if: success() && needs.check.outputs.healthcheck == 'true'
+        continue-on-error: true
+        env:
+          HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+        run: curl -fsS -m 10 --retry 3 "$HEALTHCHECK_URL" > /dev/null
+
+      - name: Signal failure
+        if: failure() && needs.check.outputs.healthcheck == 'true'
+        continue-on-error: true
+        env:
+          HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+        run: curl -fsS -m 10 --retry 3 "$HEALTHCHECK_URL/fail" > /dev/null

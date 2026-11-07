@@ -67,7 +67,7 @@ npx pnpm@10.4.1 sync
 | Script | What it does |
 | --- | --- |
 | `dev` | The server with Vite middleware and hot reload |
-| `sync` | Takes one reading through Dyson's cloud and stores it; the scheduled job |
+| `sync` | Takes one reading through Dyson's cloud and stores it. `sync --ci` is the scheduled job's version |
 | `check` | TypeScript typecheck |
 | `test` | Vitest: the Dyson client against the CLI's real HJ10 capture, sessions, routers |
 | `build` | The client into `dist/public`, the server into `dist/index.js` |
@@ -93,6 +93,34 @@ Render's and GitHub's secret settings. How long a Dyson token lasts is
 unknown. When the dashboard says Dyson rejected it, run
 `hushjet login --force` in `cli/` and update `DYSON_TOKEN` where it's set.
 
+## Scheduled sync
+
+[.github/workflows/sync.yml](.github/workflows/sync.yml) runs `pnpm sync --ci`
+every 15 minutes, and on demand from the Actions tab. It needs these
+repository secrets (Settings > Secrets and variables > Actions):
+
+| Secret | Needed | What |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | The same TiDB connection string Render uses |
+| `DYSON_TOKEN` | Yes | The token `hushjet login` saved |
+| `DYSON_SERIAL` | Optional | Only when the account has more than one HushJet |
+| `HEALTHCHECK_URL` | Optional | A healthchecks.io ping URL, to hear about failed runs |
+
+To set `DYSON_TOKEN` from your saved login without the token appearing on
+screen or in your shell history:
+
+```bash
+python3 -c 'import json, pathlib; print(json.loads((pathlib.Path.home() / ".config/hushjet/auth.json").read_text())["response"]["token"])' | gh secret set DYSON_TOKEN --repo matthewstraub/hushjet-dashboard
+```
+
+Until `DATABASE_URL` and `DYSON_TOKEN` are set, each run posts a notice and
+skips the sync, so there are no failure emails before TiDB exists. This repo
+is public, so its Actions logs are too: `--ci` prints only that a reading was
+stored, never the values or the device name, and it fails rather than passes
+when the database can't be used. Each secret reaches only the step that uses
+it. GitHub pauses schedules in a public repo after 60 days without a commit;
+a healthcheck notices, and the Actions tab re-enables it.
+
 ## Plan
 
 Done:
@@ -112,9 +140,9 @@ reading yet.
 
 Next:
 
-6. Deploy: a `hushjet` database on TiDB, the Render Blueprint in
-   `render.yaml` (its build runs `db:push`), and a GitHub workflow that runs
-   `pnpm sync` every 15 minutes, with a healthcheck.
+6. Deploy. The scheduled sync workflow is written; what's left is a
+   `hushjet` database on TiDB, the Render Blueprint in `render.yaml` (its
+   build runs `db:push`), and the repository secrets above.
 
 The sync runs in GitHub Actions rather than on Render because the purifier
 keeps no history, so readings must be recorded every few minutes. Waking a
