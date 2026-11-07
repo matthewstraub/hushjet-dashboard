@@ -38,13 +38,20 @@ const linkOptions = {
   },
 };
 
+const UNBATCHED = new Set([
+  "readings.live",
+  "readings.refresh",
+  "readings.history",
+]);
+
 const trpcClient = trpc.createClient({
   links: [
-    // A batch is answered only when every call in it is done. A live read
-    // takes a few seconds through Dyson's cloud, so it travels alone and never
-    // holds up the rest of the page.
+    // A batch is answered only when every call in it is done. These can take
+    // a few seconds through Dyson's cloud (a live read, or copying Dyson's
+    // newest history first), so they travel alone and never hold up the rest
+    // of the page.
     splitLink({
-      condition: op => op.path === "readings.live" || op.path === "readings.refresh",
+      condition: op => UNBATCHED.has(op.path),
       true: httpLink(linkOptions),
       false: httpBatchLink(linkOptions),
     }),

@@ -2,11 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DysonAuthError } from "./dyson/appApi";
 import { DysonConfigError } from "./dyson/config";
 import { SnapshotError } from "./dyson/snapshot";
+import { getDb } from "./db";
+import { historyRefresher } from "./historyRefresh";
+import { storedSlots } from "./historyStore";
 import { liveReader } from "./live";
+import { storedHistory } from "./readingsStore";
 import { appRouter } from "./routers";
 import { createMockContext, createViewerContext } from "./testHelpers";
 
 vi.mock("./live", () => ({ liveReader: { get: vi.fn() } }));
+vi.mock("./historyRefresh", () => ({
+  historyRefresher: { refresh: vi.fn(async () => {}) },
+}));
+vi.mock("./historyStore", () => ({ storedSlots: vi.fn(async () => []) }));
+vi.mock("./readingsStore", () => ({ storedHistory: vi.fn(async () => []) }));
+vi.mock("./db", async importOriginal => ({
+  ...(await importOriginal<typeof import("./db")>()),
+  getDb: vi.fn(async () => null),
+}));
 
 const get = vi.mocked(liveReader.get);
 const viewer = () => appRouter.createCaller(createViewerContext());
@@ -18,6 +31,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   get.mockReset();
+  vi.clearAllMocks();
 });
 
 describe("readings", () => {
@@ -81,8 +95,40 @@ describe("readings", () => {
     });
   });
 
-  it("has no history without a database", async () => {
-    expect(await viewer().readings.history({ range: "24h" })).toEqual({ databaseConfigured: false, points: [] });
+  it("has no history without a database, and doesn't reach Dyson for it", async () => {
+    expect(await viewer().readings.history({ range: "24h" })).toEqual({
+      databaseConfigured: false,
+      points: [],
+      slots: [],
+    });
+    expect(historyRefresher.refresh).not.toHaveBeenCalled();
+  });
+
+  it("copies Dyson's history before reading the stored history", async () => {
+    vi.mocked(getDb).mockResolvedValueOnce({} as never);
+    const slot = {
+      slotStart: new Date("2026-11-05T02:00:00Z"),
+      pm25: 4.9,
+      pm10: 4.9,
+      aqi: 5,
+      fanSpeed: 2,
+      runSeconds: 60,
+    };
+    vi.mocked(storedSlots).mockResolvedValueOnce([slot]);
+    const before = Date.now();
+    const history = await viewer().readings.history({ range: "7d" });
+    expect(historyRefresher.refresh).toHaveBeenCalledWith(600_000, 5_000);
+    expect(
+      vi.mocked(historyRefresher.refresh).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(storedSlots).mock.invocationCallOrder[0]!);
+    const since = vi.mocked(storedSlots).mock.calls[0]![0].getTime();
+    expect(since).toBeGreaterThanOrEqual(before - 7 * 24 * 3_600_000);
+    expect(vi.mocked(storedHistory).mock.calls[0]![0].getTime()).toBe(since);
+    expect(history).toEqual({
+      databaseConfigured: true,
+      points: [],
+      slots: [slot],
+    });
   });
 });
 

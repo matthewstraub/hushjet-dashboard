@@ -8,6 +8,13 @@
       "when": 1794019714692,
       "tag": "0000_readings",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1794070121821,
+      "tag": "0001_history_slots",
+      "breakpoints": true
     }
   ]
 }

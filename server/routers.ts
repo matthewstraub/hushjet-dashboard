@@ -10,6 +10,8 @@ import { DysonApiError, DysonAuthError } from "./dyson/appApi";
 import { DysonConfigError, dysonTokenSource } from "./dyson/config";
 import { DeviceSelectionError } from "./dyson/devices";
 import { SnapshotError } from "./dyson/snapshot";
+import { historyRefresher } from "./historyRefresh";
+import { storedSlots } from "./historyStore";
 import { liveReader } from "./live";
 import { storedHistory } from "./readingsStore";
 
@@ -17,6 +19,9 @@ import { storedHistory } from "./readingsStore";
 export const LIVE_MAX_AGE_MS = 60_000;
 /** The shortest gap between live reads when someone presses Refresh. */
 export const REFRESH_MIN_GAP_MS = 10_000;
+/** How often loading the charts copies Dyson's history, and how long it waits for that. */
+export const HISTORY_COPY_GAP_MS = 10 * 60_000;
+export const HISTORY_COPY_WAIT_MS = 5_000;
 
 const HOUR_MS = 60 * 60 * 1000;
 export const HISTORY_RANGES = {
@@ -96,13 +101,19 @@ export const appRouter = router({
     live: viewerProcedure.query(() => liveReading(LIVE_MAX_AGE_MS)),
     /** Read again now, unless a read finished in the last few seconds. */
     refresh: viewerProcedure.mutation(() => liveReading(REFRESH_MIN_GAP_MS)),
-    /** Stored readings for the charts; empty without a database. */
+    /**
+     * What the charts show: Dyson's 15-minute history and the stored
+     * readings, after copying Dyson's newest slots (every ten minutes at
+     * most). Empty without a database.
+     */
     history: viewerProcedure
       .input(z.object({ range: z.enum(["24h", "7d", "30d"]) }))
       .query(async ({ input }) => {
+        if (!(await getDb())) return { databaseConfigured: false, points: [], slots: [] };
+        await historyRefresher.refresh(HISTORY_COPY_GAP_MS, HISTORY_COPY_WAIT_MS);
         const since = new Date(Date.now() - HISTORY_RANGES[input.range]);
-        const points = await storedHistory(since);
-        return { databaseConfigured: points !== null, points: points ?? [] };
+        const [points, slots] = await Promise.all([storedHistory(since), storedSlots(since)]);
+        return { databaseConfigured: true, points: points ?? [], slots: slots ?? [] };
       }),
   }),
 });

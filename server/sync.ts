@@ -1,8 +1,9 @@
 /**
- * `pnpm sync`: take one reading through Dyson's cloud and store it. Locally it
- * uses the token from `hushjet login` in cli/, and prints the reading even
- * when no database is configured. The scheduled workflow runs `pnpm sync --ci`
- * every 15 minutes; see server/syncJob.ts for what --ci changes.
+ * `pnpm sync`: copy the week's 15-minute history from Dyson's cloud and take
+ * one reading, storing both. Locally it uses the token from `hushjet login` in
+ * cli/, and prints what it found even when no database is configured. The
+ * scheduled workflow runs `pnpm sync --ci` every 15 minutes; see
+ * server/syncJob.ts for what --ci changes.
  */
 
 import "dotenv/config";

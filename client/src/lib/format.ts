@@ -14,6 +14,14 @@ export function percentText(value: Maybe<number>): string {
   return value === null || value === undefined ? "–" : `${value}%`;
 }
 
+export function numberText(value: Maybe<number>): string {
+  return value === null || value === undefined ? "–" : String(value);
+}
+
+export function minutesText(value: Maybe<number>): string {
+  return value === null || value === undefined ? "–" : `${value} min`;
+}
+
 export function onOffText(value: Maybe<boolean>): string {
   if (value === null || value === undefined) return "–";
   return value ? "On" : "Off";
@@ -36,12 +44,47 @@ export function clockTime(value: string | number | Date): string {
   return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
-/** X-axis ticks: hours across a day, dates across longer ranges. */
-export function axisTime(ms: number, range: Range): string {
-  const date = new Date(ms);
-  return range === "24h"
-    ? date.toLocaleTimeString([], { hour: "numeric" })
-    : date.toLocaleDateString([], { month: "short", day: "numeric" });
+const HOUR_MS = 3_600_000;
+/** Spacings between x-axis ticks, in hours: on the hour, then whole days. */
+const TICK_STEPS = [1, 2, 3, 6, 12, 24, 48, 72, 96, 168];
+
+export interface TimeAxis {
+  ticks: number[];
+  format: (ms: number) => string;
+}
+
+/**
+ * X-axis ticks on round local times, at most maxTicks of them: on the hour,
+ * labelled "3 PM" (or with the date at midnight), or at midnight, labelled
+ * with the date.
+ */
+export function timeAxis(min: number, max: number, maxTicks = 8): TimeAxis {
+  const spanHours = Math.max(0, max - min) / HOUR_MS;
+  const step = TICK_STEPS.find(hours => spanHours / hours <= maxTicks) ?? 168;
+  const tick = new Date(min);
+  tick.setMinutes(0, 0, 0);
+  if (step < 24) {
+    while (tick.getTime() < min || tick.getHours() % step !== 0)
+      tick.setHours(tick.getHours() + 1);
+  } else {
+    tick.setHours(0);
+    if (tick.getTime() < min) tick.setDate(tick.getDate() + 1);
+  }
+  const ticks: number[] = [];
+  while (tick.getTime() <= max) {
+    ticks.push(tick.getTime());
+    if (step < 24) tick.setHours(tick.getHours() + step);
+    else tick.setDate(tick.getDate() + step / 24);
+  }
+  const date = (ms: number) =>
+    new Date(ms).toLocaleDateString([], { month: "short", day: "numeric" });
+  const hour = (ms: number) =>
+    new Date(ms).toLocaleTimeString([], { hour: "numeric" });
+  return {
+    ticks,
+    format: ms =>
+      step < 24 && new Date(ms).getHours() !== 0 ? hour(ms) : date(ms),
+  };
 }
 
 export function fullTime(ms: number): string {
@@ -51,4 +94,9 @@ export function fullTime(ms: number): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+/** "Nov 5, 2:00 AM – 2:15 AM": the time a 15-minute slot covers. */
+export function slotTime(ms: number, lengthMs = 15 * 60_000): string {
+  return `${fullTime(ms)} – ${clockTime(ms + lengthMs)}`;
 }
