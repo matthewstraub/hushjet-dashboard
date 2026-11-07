@@ -56,7 +56,14 @@ npx pnpm@10.4.1 dev
 
 The dashboard runs at http://localhost:3000, or the next free port; set `PORT`
 to choose. Without a `.env`, sign-in is off and history says it needs a
-database. To take one reading from the command line:
+database. With `DATABASE_URL` in `.env`, this creates the readings table, and
+the dev server picks the database up on its next start:
+
+```bash
+npx pnpm@10.4.1 db:push
+```
+
+To take one reading from the command line:
 
 ```bash
 npx pnpm@10.4.1 sync
@@ -90,8 +97,7 @@ npx pnpm@10.4.1 sync
 
 Never commit `.env`, the purifier's serial or the Dyson token. They belong in
 Render's and GitHub's secret settings. How long a Dyson token lasts is
-unknown. When the dashboard says Dyson rejected it, run
-`hushjet login --force` in `cli/` and update `DYSON_TOKEN` where it's set.
+unknown; [Deployment](#deployment) says how to replace it.
 
 ## Scheduled sync
 
@@ -121,28 +127,46 @@ when the database can't be used. Each secret reaches only the step that uses
 it. GitHub pauses schedules in a public repo after 60 days without a commit;
 a healthcheck notices, and the Actions tab re-enables it.
 
-## Plan
+## Deployment
 
-Done:
+The dashboard is live at https://hushjet-dashboard.onrender.com.
 
-1. Prove Dyson's cloud route: `hushjet listen --cloud` in `cli/`, confirmed on
-   a real HJ10.
-2. Scaffold this app.
-3. Port the Dyson client and message parser to TypeScript, tested against the
-   CLI's captures in `cli/tests/fixtures/`.
-4. The `readings` table, its first migration, and `pnpm sync`.
-5. The dashboard: live readings with Refresh, fan and monitoring status, and
-   history charts with a table view.
+| Piece | Where | Settings |
+| --- | --- | --- |
+| Database | TiDB Cloud cluster `hushjet-dashboard` | Starter (free), AWS us-east-1, database `hushjet`. The cluster's own root login is used by nothing else |
+| Web service | Render, Matt's Projects → Production | `hushjet-dashboard`: Node, Free, Oregon, branch `main`, auto-deploy on commit, health check `/api/health` |
+| Readings | GitHub Actions | [Scheduled sync](#scheduled-sync), every 15 minutes |
 
-Live readings and `pnpm sync` are checked against the real purifier. History
-is built but waits for a database, so it hasn't stored or charted a real
-reading yet.
+Like the PetLibro and Dexcom services, the Render service was created in the
+dashboard rather than from a Blueprint, so Render doesn't read
+[render.yaml](render.yaml); the file records the same settings. The service
+uses:
 
-Next:
+- Build: `pnpm install --frozen-lockfile && pnpm run build && pnpm run db:push`.
+  Migrations run here, so a schema change ships with the push that adds it.
+- Start: `pnpm run start`
+- Environment: `NODE_ENV=production`, `DATABASE_URL` (the same string as the
+  GitHub secret), `VIEWER_PASSWORD`, `DYSON_TOKEN`, and a `SESSION_SECRET`
+  Render generated. `ADMIN_PASSWORD` is unset, since nothing needs it yet.
 
-6. Deploy. The scheduled sync workflow is written; what's left is a
-   `hushjet` database on TiDB, the Render Blueprint in `render.yaml` (its
-   build runs `db:push`), and the repository secrets above.
+Every push to `main` redeploys, including changes to docs.
+
+### Replacing the Dyson token
+
+When the dashboard says Dyson rejected the token, log in again:
+
+```bash
+cd cli && uv run hushjet login --force
+```
+
+Then update `DYSON_TOKEN` in both places. For GitHub, rerun the
+`gh secret set DYSON_TOKEN` command in [Scheduled sync](#scheduled-sync). For
+Render, copy the token without printing it, then paste it into the service's
+Environment page, which redeploys:
+
+```bash
+python3 -c 'import json, pathlib; print(json.loads((pathlib.Path.home() / ".config/hushjet/auth.json").read_text())["response"]["token"], end="")' | pbcopy
+```
 
 The sync runs in GitHub Actions rather than on Render because the purifier
 keeps no history, so readings must be recorded every few minutes. Waking a
