@@ -1,0 +1,10 @@
+# Secrets: the account password lives here if you choose to put it in .env
+.env
+
+# Readings and raw MQTT captures
+data/
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

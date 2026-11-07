@@ -1,0 +1,31 @@
+[project]
+name = "hushjet"
+version = "0.1.0"
+description = "Read fan state, PM2.5/PM10 and filter life from a Dyson HushJet Purifier Compact (HJ10) over its local MQTT broker."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "certifi>=2024.2",
+    "cryptography>=44",
+    "httpx>=0.28,<0.29",
+    "paho-mqtt>=2.1,<3",
+    "python-dotenv>=1.0,<2",
+    "zeroconf>=0.136",
+]
+
+[project.scripts]
+hushjet = "hushjet.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hushjet"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
