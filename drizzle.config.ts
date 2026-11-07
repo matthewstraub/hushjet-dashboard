@@ -1,3 +1,5 @@
+// Locally, DATABASE_URL comes from .env; on Render it's already in the environment.
+import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
 
 const connectionString = process.env.DATABASE_URL;
