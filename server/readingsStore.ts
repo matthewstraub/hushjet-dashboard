@@ -1,6 +1,6 @@
 /** Storing readings and reading back their history. */
 
-import { desc, gte } from "drizzle-orm";
+import { desc, eq, gte, max } from "drizzle-orm";
 import { readings, type NewReadingRow } from "../drizzle/schema";
 import { getDb } from "./db";
 import type { Reading } from "./dyson/messages";
@@ -34,6 +34,20 @@ export async function saveReading(reading: Reading, source: ReadingSource): Prom
   if (!db) return false;
   await db.insert(readings).values(toRow(reading, source));
   return true;
+}
+
+/**
+ * When the scheduled sync last stored a reading, or null if it never has.
+ * Null too when no database is configured.
+ */
+export async function latestSyncAt(): Promise<Date | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db
+    .select({ at: max(readings.takenAt) })
+    .from(readings)
+    .where(eq(readings.source, "sync"));
+  return row?.at ?? null;
 }
 
 export interface HistoryPoint {

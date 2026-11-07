@@ -6,12 +6,20 @@
  * - CURRENT-STATE: {"msg", "time", "product-state": {field: "VALUE"}}
  * - STATE-CHANGE: {"msg", "time", "product-state": {field: ["OLD", "NEW"]}}
  * - ENVIRONMENTAL-CURRENT-SENSOR-DATA: {"msg", "time", "data": {field: "VALUE"}}
+ * - CURRENT-FAULTS: {"msg", "time", "product-errors": {code: "OK"}, ...}, on
+ *   the status/faults topic. Only the dashboard reads these; the CLI doesn't.
  *
  * A real HJ10 sends fpwr, auto, fnsp, fnst, nmod, nmdv, rhtm, sltm, hflr and
  * cflr (filter life percent), and hflt and cflt (filter types) in its state,
  * and pm25, pm10, p25r, p10r and sltm as sensor data. Numbers arrive as zero
  * padded strings ("0004"). A sensor reports OFF, INIT or FAIL instead of a
- * number when it isn't measuring. Every field is kept, known or not.
+ * number when it isn't measuring. Every field is kept, known or not. The
+ * CURRENT-STATE message also carries rssi, the Wi-Fi signal in dBm ("-38").
+ *
+ * The HJ10's fault report has four groups of checks, each "OK" when fine:
+ * product-errors (com2, iuh0, iuu0, fs01, sen1, amf5), product-warnings
+ * (fltr, the filter), module-errors and module-warnings. What most codes
+ * stand for isn't documented.
  */
 
 export const CURRENT_STATE = "CURRENT-STATE";
@@ -19,6 +27,23 @@ export const STATE_CHANGE = "STATE-CHANGE";
 export const SENSOR_DATA = "ENVIRONMENTAL-CURRENT-SENSOR-DATA";
 export const REQUEST_STATE = "REQUEST-CURRENT-STATE";
 export const REQUEST_SENSOR_DATA = "REQUEST-PRODUCT-ENVIRONMENT-CURRENT-SENSOR-DATA";
+export const CURRENT_FAULTS = "CURRENT-FAULTS";
+export const REQUEST_FAULTS = "REQUEST-CURRENT-FAULTS";
+
+export const FAULT_GROUPS = [
+  "product-errors",
+  "product-warnings",
+  "module-errors",
+  "module-warnings",
+] as const;
+export type FaultGroup = (typeof FAULT_GROUPS)[number];
+
+export interface FaultReport {
+  /** Every check the purifier reported, by group: "OK", or what's wrong. */
+  checks: Partial<Record<FaultGroup, Record<string, string>>>;
+  /** The checks that aren't OK. */
+  problems: { group: FaultGroup; code: string; value: string }[];
+}
 
 export const SENSOR_STATUSES = ["OFF", "INIT", "FAIL"] as const;
 
@@ -41,6 +66,10 @@ export interface Reading {
   pm10: number | null;
   /** OFF, INIT or FAIL when the PM sensor isn't giving numbers. */
   sensorStatus: string | null;
+  /** Wi-Fi signal strength in dBm. */
+  wifiSignal: number | null;
+  /** The purifier's fault report, when it sent one. */
+  faults: FaultReport | null;
   state: Fields;
   sensor: Fields;
 }
@@ -55,6 +84,15 @@ export function newest(value: unknown): unknown {
 export function asInt(value: unknown): number | null {
   if (typeof value === "number") return Number.isInteger(value) ? value : null;
   if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    return Number.parseInt(value.trim(), 10);
+  }
+  return null;
+}
+
+/** "-38" -> -38. */
+export function asSignedInt(value: unknown): number | null {
+  if (typeof value === "number") return Number.isInteger(value) ? value : null;
+  if (typeof value === "string" && /^-?\d+$/.test(value.trim())) {
     return Number.parseInt(value.trim(), 10);
   }
   return null;
@@ -86,12 +124,32 @@ function newestOf(fields: Fields): Fields {
   return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, newest(value)]));
 }
 
-/** The latest known state and sensor values for one purifier. */
+/** A CURRENT-FAULTS message's checks, or null when it has none. */
+export function faultReport(payload: Fields): FaultReport | null {
+  const checks: FaultReport["checks"] = {};
+  const problems: FaultReport["problems"] = [];
+  for (const group of FAULT_GROUPS) {
+    const fields = payload[group];
+    if (!isFields(fields)) continue;
+    const values: Record<string, string> = {};
+    for (const [code, raw] of Object.entries(fields)) {
+      const value = String(newest(raw) ?? "");
+      values[code] = value;
+      if (value.trim().toUpperCase() !== "OK") problems.push({ group, code, value });
+    }
+    checks[group] = values;
+  }
+  return Object.keys(checks).length ? { checks, problems } : null;
+}
+
+/** The latest known state, sensor values and faults for one purifier. */
 export class Snapshot {
   state: Fields = {};
   sensor: Fields = {};
+  wifiSignal: number | null = null;
+  faults: FaultReport | null = null;
 
-  /** Fold in one message; return its type if it carried state or sensor data. */
+  /** Fold in one message; return its type if it carried state, sensor data or faults. */
   apply(payload: unknown): string | null {
     if (!isFields(payload)) return null;
     const msg = payload.msg;
@@ -100,6 +158,13 @@ export class Snapshot {
       if (!isFields(fields)) return null;
       const values = newestOf(fields);
       this.state = msg === CURRENT_STATE ? values : { ...this.state, ...values };
+      this.wifiSignal = asSignedInt(payload.rssi) ?? this.wifiSignal;
+      return msg;
+    }
+    if (msg === CURRENT_FAULTS) {
+      const report = faultReport(payload);
+      if (!report) return null;
+      this.faults = report;
       return msg;
     }
     if (msg === SENSOR_DATA) {
@@ -129,6 +194,8 @@ export class Snapshot {
       pm25: asInt(sensor.pm25),
       pm10: asInt(sensor.pm10),
       sensorStatus: sensorStatus(sensor),
+      wifiSignal: this.wifiSignal,
+      faults: this.faults,
       state: { ...state },
       sensor: { ...sensor },
     };

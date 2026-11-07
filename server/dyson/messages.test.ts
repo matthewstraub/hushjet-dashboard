@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   asFlag,
   asInt,
+  asSignedInt,
+  CURRENT_FAULTS,
   CURRENT_STATE,
   newest,
   SENSOR_DATA,
@@ -9,7 +11,7 @@ import {
   Snapshot,
   STATE_CHANGE,
 } from "./messages";
-import { capturePayloads, REAL_CAPTURE, SERIAL, SYNTHETIC_CAPTURE } from "./testData";
+import { capturePayloads, FAULTS_REPORT, REAL_CAPTURE, SERIAL, SYNTHETIC_CAPTURE } from "./testData";
 
 function replay(file: string) {
   const snapshot = new Snapshot();
@@ -90,6 +92,48 @@ describe("Snapshot.apply", () => {
   });
 });
 
+describe("Wi-Fi signal and faults", () => {
+  it("reads the Wi-Fi signal from the state message", () => {
+    const { snapshot } = replay(REAL_CAPTURE);
+    const reading = snapshot.reading(SERIAL, "2026-11-07T00:10:25.075Z");
+    expect(reading.wifiSignal).toBe(-38);
+    expect(reading.faults).toBeNull();
+  });
+
+  it("keeps every check in a fault report, and lists none as problems when all are OK", () => {
+    const snapshot = new Snapshot();
+    expect(snapshot.apply(FAULTS_REPORT)).toBe(CURRENT_FAULTS);
+    const { faults } = snapshot.reading(SERIAL, "2026-11-07T21:47:51.000Z");
+    expect(faults?.problems).toEqual([]);
+    expect(Object.keys(faults?.checks ?? {})).toEqual([
+      "product-errors",
+      "product-warnings",
+      "module-errors",
+      "module-warnings",
+    ]);
+    expect(faults?.checks["product-warnings"]).toEqual({ fltr: "OK" });
+  });
+
+  it("lists the checks that aren't OK", () => {
+    const snapshot = new Snapshot();
+    snapshot.apply({
+      ...FAULTS_REPORT,
+      "product-errors": { ...FAULTS_REPORT["product-errors"], sen1: "FAIL" },
+      "product-warnings": { fltr: "CHNG" },
+    });
+    expect(snapshot.faults?.problems).toEqual([
+      { group: "product-errors", code: "sen1", value: "FAIL" },
+      { group: "product-warnings", code: "fltr", value: "CHNG" },
+    ]);
+  });
+
+  it("ignores a fault message without checks", () => {
+    const snapshot = new Snapshot();
+    expect(snapshot.apply({ msg: CURRENT_FAULTS })).toBeNull();
+    expect(snapshot.faults).toBeNull();
+  });
+});
+
 describe("value helpers", () => {
   it.each([
     ["0004", 4],
@@ -105,6 +149,16 @@ describe("value helpers", () => {
     [null, null],
   ])("asInt(%j) is %j", (value, expected) => {
     expect(asInt(value)).toBe(expected);
+  });
+
+  it("reads signed numbers like the Wi-Fi signal", () => {
+    expect([asSignedInt("-38"), asSignedInt("0052"), asSignedInt(-61), asSignedInt("-"), asSignedInt(null)]).toEqual([
+      -38,
+      52,
+      -61,
+      null,
+      null,
+    ]);
   });
 
   it("reads ON and OFF as flags and nothing else", () => {

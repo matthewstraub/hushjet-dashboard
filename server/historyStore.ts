@@ -1,6 +1,6 @@
 /** Storing Dyson's 15-minute history and reading it back for the charts. */
 
-import { desc, gte, sql } from "drizzle-orm";
+import { desc, gte, max, sql } from "drizzle-orm";
 import type { MySqlColumn } from "drizzle-orm/mysql-core";
 import type { MySql2Database } from "drizzle-orm/mysql2";
 import { historySlots, type NewHistorySlotRow } from "../drizzle/schema";
@@ -63,6 +63,14 @@ export async function saveHistory(
     await upsertSlots(db, rows.slice(i, i + BATCH));
   }
   return rows.length;
+}
+
+/** The start of the newest stored slot, or null when there are none or no database. */
+export async function newestSlotStart(): Promise<Date | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select({ at: max(historySlots.slotStart) }).from(historySlots);
+  return row?.at ?? null;
 }
 
 /**

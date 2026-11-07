@@ -67,9 +67,44 @@ export const IOT_RESPONSE = {
   },
 };
 
+/** A real HJ10 fault report, all clear, from asking it REQUEST-CURRENT-FAULTS. */
+export const FAULTS_REPORT = {
+  msg: "CURRENT-FAULTS",
+  time: "2026-11-07T21:47:51.000Z",
+  "product-errors": { com2: "OK", iuh0: "OK", iuu0: "OK", fs01: "OK", sen1: "OK", amf5: "OK" },
+  "product-warnings": { fltr: "OK" },
+  "module-errors": {
+    szme: "OK",
+    szmw: "OK",
+    szps: "OK",
+    szpe: "OK",
+    szpw: "OK",
+    szed: "OK",
+    lspd: "OK",
+    szpi: "OK",
+    szpp: "OK",
+    szhv: "OK",
+    szbv: "OK",
+    szav: "OK",
+  },
+  "module-warnings": {
+    srnk: "OK",
+    stac: "OK",
+    strs: "OK",
+    srmi: "OK",
+    srmu: "OK",
+    nwcs: "OK",
+    nwts: "OK",
+    nwps: "OK",
+    nwss: "OK",
+  },
+};
+
 export interface FakeBehavior {
   /** Payloads to send back after the first command, like the HJ10 does. */
   replies?: unknown[];
+  /** Payloads to send back for one request, given how many times it's been asked. */
+  replyTo?: (request: string, attempt: number) => unknown[];
   /** Fail the connection with this error instead of connecting. */
   refuse?: Error;
   subscribeError?: Error;
@@ -89,19 +124,25 @@ export class FakeMqttClient extends EventEmitter implements SnapshotClient {
     });
   }
 
-  subscribe(topic: string, callback: (error: Error | null) => void) {
-    this.subscriptions.push(topic);
+  subscribe(topics: string[], callback: (error: Error | null) => void) {
+    this.subscriptions.push(...topics);
     setImmediate(() => callback(this.behavior.subscribeError ?? null));
     return this;
   }
 
   publish(topic: string, message: string) {
     this.published.push({ topic, message });
-    if (this.published.length === 1) {
-      const statusTopic = topic.replace(/\/command$/, "/status/current");
-      for (const reply of this.behavior.replies ?? []) {
-        setImmediate(() => this.emit("message", statusTopic, Buffer.from(JSON.stringify(reply))));
-      }
+    const request = (JSON.parse(message) as { msg: string }).msg;
+    const attempt = this.published.filter(p => p.message.includes(`"${request}"`)).length;
+    const replies = [
+      ...(this.published.length === 1 ? (this.behavior.replies ?? []) : []),
+      ...(this.behavior.replyTo?.(request, attempt) ?? []),
+    ];
+    for (const reply of replies) {
+      // Fault reports come on their own topic, like the HJ10 sends them.
+      const kind = (reply as { msg?: string }).msg === "CURRENT-FAULTS" ? "faults" : "current";
+      const replyTopic = topic.replace(/\/command$/, `/status/${kind}`);
+      setImmediate(() => this.emit("message", replyTopic, Buffer.from(JSON.stringify(reply))));
     }
     return this;
   }

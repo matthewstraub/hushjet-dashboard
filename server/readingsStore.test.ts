@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Device } from "./dyson/devices";
 import { Snapshot } from "./dyson/messages";
 import { capturePayloads, REAL_CAPTURE, SERIAL } from "./dyson/testData";
-import { saveReading, storedHistory, toRow } from "./readingsStore";
+import { latestSyncAt, saveReading, storedHistory, toRow } from "./readingsStore";
 import { summary } from "./readingSummary";
 
 function realReading() {
@@ -41,6 +41,7 @@ describe("without a database", () => {
     vi.stubEnv("DATABASE_URL", "");
     expect(await saveReading(realReading(), "sync")).toBe(false);
     expect(await storedHistory(new Date(0))).toBeNull();
+    expect(await latestSyncAt()).toBeNull();
   });
 });
 

@@ -1,4 +1,5 @@
 import { HistoryCard } from "@/components/HistoryCard";
+import { StatusCard } from "@/components/StatusCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -157,6 +158,13 @@ export default function Home() {
             </CardContent>
           </Card>
         )}
+
+        <StatusCard
+          loading={loading}
+          reading={reading}
+          device={device}
+          error={error && { message: error.message, code: error.data?.code }}
+        />
 
         <HistoryCard />
       </main>

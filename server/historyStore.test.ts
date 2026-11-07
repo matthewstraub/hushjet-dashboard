@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HistorySlot } from "./dyson/history";
 import { SERIAL } from "./dyson/testData";
 import {
+  newestSlotStart,
   saveHistory,
   storedSlots,
   toHistoryRows,
@@ -57,5 +58,6 @@ describe("without a database", () => {
     vi.stubEnv("DATABASE_URL", "");
     expect(await saveHistory(SERIAL, [SLOT])).toBeNull();
     expect(await storedSlots(new Date(0))).toBeNull();
+    expect(await newestSlotStart()).toBeNull();
   });
 });
