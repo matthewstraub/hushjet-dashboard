@@ -89,6 +89,17 @@ describe("summarizeDays", () => {
     expect(day!.minutesAbove).toBe(16);
   });
 
+  it("weights the newest slot in the day's average by how much of it has happened", () => {
+    // At 00:16, a full slot of 3 and one minute of 45 average 5.6, not 24.
+    const [day] = summarizeDays(
+      [slot("2026-11-07T00:00:00Z", 3), slot("2026-11-07T00:15:00Z", 45)],
+      "UTC",
+      7,
+      new Date("2026-11-07T00:16:00Z")
+    );
+    expect(day).toMatchObject({ avgPm25: 5.6, aboveGuideline: false, minutesAbove: 1, peakPm25: 45 });
+  });
+
   it("weights the average fan speed by how long the fan ran", () => {
     // A minute at speed 2, then a full slot at 8: 7.6, not 5.
     const [day] = summarizeDays([slot("2026-11-07T15:00:00Z", 3, 2, 60), slot("2026-11-07T15:15:00Z", 3, 8, 900)], NY, 7, NOW);

@@ -74,8 +74,26 @@ export function isTimeZone(name: string): boolean {
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
-function mean(values: number[]): number | null {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+/**
+ * How much of a slot has happened by `now`: all 15 minutes, except for the
+ * newest slot, which Dyson fills in as it goes.
+ */
+function elapsedMs(slot: HistorySlot, now: Date): number {
+  return Math.min(SLOT_MINUTES * 60_000, Math.max(0, now.getTime() - slot.slotStart.getTime()));
+}
+
+/** Mean PM2.5 over the time the slots cover, so a slot one minute old counts for a minute. */
+function pmMeanOver(slots: HistorySlot[], now: Date): number | null {
+  if (!slots.length) return null;
+  let total = 0;
+  let weight = 0;
+  for (const slot of slots) {
+    const ms = elapsedMs(slot, now);
+    total += slot.pm25! * ms;
+    weight += ms;
+  }
+  // Only slots stamped after `now` would leave no weight; count them equally then.
+  return weight ? total / weight : slots.reduce((sum, slot) => sum + slot.pm25!, 0) / slots.length;
 }
 
 /** The date `n` calendar days before a YYYY-MM-DD date, whatever the clocks do. */
@@ -114,7 +132,7 @@ export function summarizeDays(slots: HistorySlot[], timeZone: string, days: numb
     const peak = peakIndex === null ? null : slots[peakIndex]!;
     const ran = day.filter(slot => slot.runSeconds !== null && slot.runSeconds > 0 && slot.fanSpeed !== null);
     const ranSeconds = ran.reduce((sum, slot) => sum + slot.runSeconds!, 0);
-    const pmMean = mean(pm.map(slot => slot.pm25!));
+    const pmMean = pmMeanOver(pm, now);
     const runSeconds = day.filter(slot => slot.runSeconds !== null).map(slot => slot.runSeconds!);
 
     summaries.push({
@@ -144,7 +162,7 @@ export function summarizeDays(slots: HistorySlot[], timeZone: string, days: numb
 function minutesOver(slots: HistorySlot[], now: Date): number {
   const ms = slots
     .filter(slot => slot.pm25! > WHO_PM25_24H)
-    .reduce((sum, slot) => sum + Math.min(SLOT_MINUTES * 60_000, Math.max(0, now.getTime() - slot.slotStart.getTime())), 0);
+    .reduce((sum, slot) => sum + elapsedMs(slot, now), 0);
   return Math.round(ms / 60_000);
 }
 
