@@ -7,6 +7,9 @@ uses the same stack as the PetLibro and Dexcom dashboards: a Vite, React and
 Recharts client, an Express and tRPC server, Drizzle on TiDB, password
 sign-in, and a free Render web service.
 
+The dashboard's Info tab explains the purifier, where each number comes from,
+and terms like PM2.5, µg/m³, AQI and NO₂.
+
 This is unofficial. It relies on the community-documented MyDyson App API,
 which Dyson can change without notice.
 
