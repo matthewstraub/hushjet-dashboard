@@ -8,6 +8,7 @@ import {
   onOffText,
   percentText,
   pmText,
+  pmUnitText,
   timeAxis,
 } from "./format";
 
@@ -44,6 +45,16 @@ describe("format", () => {
     expect([minutesText(15), minutesText(0), minutesText(undefined)]).toEqual([
       "15 min",
       "0 min",
+      "–",
+    ]);
+  });
+
+  it("adds the PM unit only to numbers", () => {
+    expect([pmUnitText(3, null), pmUnitText(7.5), pmUnitText(null, "OFF"), pmUnitText(null, "INIT"), pmUnitText(null)]).toEqual([
+      "3 µg/m³",
+      "7.5 µg/m³",
+      "off",
+      "init",
       "–",
     ]);
   });

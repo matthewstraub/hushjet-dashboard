@@ -10,6 +10,11 @@ export function pmText(value: Maybe<number>, status: Maybe<string>): string {
   return status ? status.toLowerCase() : "–";
 }
 
+/** "3 µg/m³", or the sensor's word (off, init, fail) without a unit when there's no number. */
+export function pmUnitText(value: Maybe<number>, status?: Maybe<string>): string {
+  return value === null || value === undefined ? pmText(value, status) : `${value} µg/m³`;
+}
+
 export function percentText(value: Maybe<number>): string {
   return value === null || value === undefined ? "–" : `${value}%`;
 }

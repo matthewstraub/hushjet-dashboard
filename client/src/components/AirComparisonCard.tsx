@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { clockTime, numberText, pmText } from "@/lib/format";
+import { clockTime, numberText, pmUnitText } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
 
 const TH = "py-2 pr-4 text-left font-normal";
@@ -22,20 +22,19 @@ export function AirComparisonCard({ indoor }: { indoor?: IndoorReading }) {
   const outdoor = status.data?.outdoor;
   if (!outdoor) return null;
 
-  const pm = (value: string) => (value === "–" ? value : `${value} µg/m³`);
   const notMeasured = <span className="text-muted-foreground">Not measured</span>;
   const rows: { key: string; label: React.ReactNode; indoors: React.ReactNode; outdoors: string }[] = [
     {
       key: "pm25",
       label: "PM2.5",
-      indoors: pm(pmText(indoor?.pm25, indoor?.sensorStatus)),
-      outdoors: pm(numberText(outdoor.pm25)),
+      indoors: pmUnitText(indoor?.pm25, indoor?.sensorStatus),
+      outdoors: pmUnitText(outdoor.pm25),
     },
     {
       key: "pm10",
       label: "PM10",
-      indoors: pm(pmText(indoor?.pm10, indoor?.sensorStatus)),
-      outdoors: pm(numberText(outdoor.pm10)),
+      indoors: pmUnitText(indoor?.pm10, indoor?.sensorStatus),
+      outdoors: pmUnitText(outdoor.pm10),
     },
     {
       key: "aqi",
