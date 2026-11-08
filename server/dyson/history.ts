@@ -1,10 +1,11 @@
 /**
- * Dyson's cloud keeps a 15-minute history of the purifier for the current
- * week, from Sunday at midnight in the account's time zone: PM2.5, PM10, an
- * air quality index, the fan's average speed and how long it ran. It's what
- * the MyDyson app charts. A new week presumably starts empty, so `pnpm sync`
- * stores every slot as it goes, updating ones it already has, since the
- * current slot fills in as its 15 minutes pass.
+ * Dyson's cloud keeps a 15-minute history of the purifier for the last seven
+ * days: PM2.5, PM10, an air quality index, the fan's average speed and how
+ * long it ran. It's what the MyDyson app charts. The window starts at
+ * midnight six days ago in the account's time zone (start_time) and moves
+ * forward a day at a time, so `pnpm sync` stores every slot as it goes,
+ * updating ones it already has, since the current slot fills in as its 15
+ * minutes pass.
  *
  * Seen from a real HJ10: {"start_time": "2026-11-01T05:00:00Z", "resolution":
  * "PT15M", "p25m": [...672], "p10m": [...], "aqlm": [...], "fnsp": [...],
@@ -100,7 +101,7 @@ export interface HistoryResult {
 }
 
 /**
- * This week's history from Dyson's cloud, and the latest outdoor air
+ * The last seven days of history from Dyson's cloud, and the latest outdoor air
  * figures with it. Only HTTPS calls, no MQTT. The outdoor figures are extra,
  * so failing to get them doesn't fail the history.
  */

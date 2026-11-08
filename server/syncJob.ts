@@ -41,7 +41,7 @@ function messageOf(error: unknown): string {
 
 /**
  * Two independent steps, so one failing doesn't cost the other: copy Dyson's
- * 15-minute history for the week, then take a snapshot for what the history
+ * 15-minute history for the last seven days, then take a snapshot for what the history
  * lacks (filter life, the fan's mode). Throws at the end if either failed.
  */
 export async function runSync(options: SyncOptions = {}): Promise<void> {
@@ -78,7 +78,7 @@ export async function runSync(options: SyncOptions = {}): Promise<void> {
       failures.push(`${NO_DATABASE_CI}, so the history wasn't stored.`);
     } else {
       log(
-        `Dyson has ${what} for this week${spanText(slots)}; DATABASE_URL isn't set, so they weren't saved.`
+        `Dyson has ${what} for the last seven days${spanText(slots)}; DATABASE_URL isn't set, so they weren't saved.`
       );
     }
     // Outdoor air comes with the history. It's extra, so a gap is a note, not a failure.

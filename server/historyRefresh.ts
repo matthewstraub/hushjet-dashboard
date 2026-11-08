@@ -2,7 +2,7 @@
  * Copies Dyson's 15-minute history into the database when the dashboard asks
  * for history, at most once per gap. `pnpm sync` does the same on a schedule,
  * but GitHub runs scheduled workflows late or skips them, and Dyson's copy
- * covers only the current week; this way looking at the page fills any gap.
+ * covers only the last seven days; this way looking at the page fills any gap.
  */
 
 import {

@@ -1,5 +1,5 @@
 /**
- * `pnpm sync`: copy the week's 15-minute history from Dyson's cloud and take
+ * `pnpm sync`: copy the last seven days of 15-minute history from Dyson's cloud and take
  * one reading, storing both. Locally it uses the token from `hushjet login` in
  * cli/, and prints what it found even when no database is configured. The
  * scheduled workflow runs `pnpm sync --ci` every 15 minutes; see

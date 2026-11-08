@@ -100,7 +100,7 @@ export class DysonAppApi {
   }
 
   /**
-   * The current week's 15-minute history, the data behind the MyDyson app's
+   * The last seven days of 15-minute history, the data behind the MyDyson app's
    * charts: start_time, resolution and one array per series. See history.ts.
    * Null when Dyson has none.
    */

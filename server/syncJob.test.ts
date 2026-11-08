@@ -69,7 +69,7 @@ describe("runSync", () => {
     const { lines, options } = setup({ stored: false });
     await runSync({ ...options, env: {} });
     expect(lines).toEqual([
-      "Dyson has 3 history slots for this week, 2026-11-05T02:00:00.000Z to 2026-11-05T02:30:00.000Z; " +
+      "Dyson has 3 history slots for the last seven days, 2026-11-05T02:00:00.000Z to 2026-11-05T02:30:00.000Z; " +
         "DATABASE_URL isn't set, so they weren't saved.",
       "Bedroom: PM2.5 3, PM10 2, HEPA 100%, carbon 100%, fan on at speed 4",
       "DATABASE_URL isn't set, so the reading wasn't saved.",

@@ -57,11 +57,13 @@ The status card on the dashboard shows:
 Dyson's cloud keeps 15-minute averages of the purifier for the MyDyson app's
 charts: PM2.5, PM10, an air quality index, the fan's average speed, and how
 long the fan ran (`/v1/messageprocessor/devices/{serial}/environmentdata/daily`).
-It covers only the current week, from Sunday at midnight in the account's
-time zone, so a new week presumably starts empty. Every `pnpm sync` copies
-the whole week into the `history_slots` table, updating the newest slot as it
-fills in, and loading the charts does the same, at most every ten minutes.
-Slots that aren't copied before their week ends are likely lost.
+It covers the last seven days: a rolling window that starts at midnight six
+days ago, in the account's time zone, and moves forward a day at a time. (On
+Sunday, November 8, 2026 it started on Monday, November 2, so it doesn't reset
+weekly.) Every `pnpm sync` copies all seven days into the `history_slots`
+table, updating the newest slot as it fills in, and loading the charts does
+the same, at most every ten minutes. A slot is lost only if nothing copies it
+for about a week.
 
 The charts use those slots for PM and fan speed. Filter life isn't in Dyson's
 history, so it comes from the stored readings.
@@ -127,7 +129,7 @@ server picks the database up on its next start:
 npx pnpm@10.4.1 db:push
 ```
 
-To copy the week's history and take one reading from the command line:
+To copy the last seven days of history and take one reading from the command line:
 
 ```bash
 npx pnpm@10.4.1 sync
@@ -138,7 +140,7 @@ npx pnpm@10.4.1 sync
 | Script | What it does |
 | --- | --- |
 | `dev` | The server with Vite middleware and hot reload |
-| `sync` | Copies the week's 15-minute history and the hour's outdoor air from Dyson's cloud and takes one reading, storing them. `sync --ci` is the scheduled job's version |
+| `sync` | Copies the last seven days of 15-minute history and the hour's outdoor air from Dyson's cloud and takes one reading, storing them. `sync --ci` is the scheduled job's version |
 | `check` | TypeScript typecheck |
 | `test` | Vitest: the Dyson client against real HJ10 captures and history, the stores, sessions, routers |
 | `build` | The client into `dist/public`, the server into `dist/index.js` |
@@ -195,9 +197,9 @@ it. GitHub pauses schedules in a public repo after 60 days without a commit;
 a healthcheck notices, and the Actions tab re-enables it.
 
 GitHub also runs scheduled workflows late and skips many runs. Each run copies
-the whole week, so the history only loses slots when no run, and no visit to
-the dashboard, comes after them before the week ends; readings have gaps
-wherever runs were skipped.
+all seven days, so the history only loses slots if nothing runs and nobody
+opens the dashboard for about a week; readings have gaps wherever runs were
+skipped.
 
 ## Deployment
 
