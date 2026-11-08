@@ -47,7 +47,8 @@ export function AirComparisonCard({ indoor }: { indoor?: IndoorReading }) {
       ),
       indoors: notMeasured,
       outdoors:
-        outdoor.aqi === null ? "–" : [outdoor.aqi, outdoor.aqiName].filter(Boolean).join(" · "),
+        // Not filter(Boolean): an AQI of 0 is a real value.
+        outdoor.aqi === null ? "–" : outdoor.aqiName ? `${outdoor.aqi} · ${outdoor.aqiName}` : String(outdoor.aqi),
     },
     { key: "no2", label: "NO₂", indoors: notMeasured, outdoors: numberText(outdoor.no2) },
   ];

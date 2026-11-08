@@ -18,11 +18,13 @@ here from that folder.
 uv sync
 ```
 
-If the repo is in an iCloud-synced folder like `~/Documents`, keep the
-environment outside it, with `.venv` linking to it (Troubleshooting says why):
+If the repo is in an iCloud-synced folder like `~/Documents`, run this
+instead, which keeps the environment outside it with `.venv` linking to it
+(Troubleshooting says why). It removes any `.venv` folder first, since `ln`
+would otherwise put the link inside it, and it's safe to run again:
 
 ```bash
-uv venv ~/.local/share/hushjet/cli-venv && ln -s ~/.local/share/hushjet/cli-venv .venv && uv sync
+rm -rf .venv && uv venv --allow-existing ~/.local/share/hushjet/cli-venv && ln -s ~/.local/share/hushjet/cli-venv .venv && uv sync
 ```
 
 Optional: `cp .env.example .env` and set `DYSON_EMAIL`, plus `DYSON_HOST` if
@@ -189,6 +191,6 @@ it stands in for Dyson's AWS IoT broker and checks the handshake headers. See
   in a `.nosync` folder), and Python 3.13 and later skip hidden `.pth` files,
   which is how `uv sync` links this package in. Move the environment out of
   the synced folder and link it back:
-  `rm -rf .venv && uv venv ~/.local/share/hushjet/cli-venv && ln -s ~/.local/share/hushjet/cli-venv .venv && uv sync`.
+  `rm -rf .venv && uv venv --allow-existing ~/.local/share/hushjet/cli-venv && ln -s ~/.local/share/hushjet/cli-venv .venv && uv sync`.
 
 Not built yet, as the handoff allows: commands (`STATE-SET`) and a dashboard.
