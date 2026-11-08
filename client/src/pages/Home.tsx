@@ -1,5 +1,6 @@
 import { DailyCard } from "@/components/DailyCard";
 import { HistoryCard } from "@/components/HistoryCard";
+import { SiteHeader } from "@/components/SiteHeader";
 import { AirComparisonCard } from "@/components/AirComparisonCard";
 import { StatusCard } from "@/components/StatusCard";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,6 @@ import {
   AlertTriangle,
   Fan,
   Filter,
-  LogOut,
   Moon,
   RefreshCw,
   Wind,
@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 
 export default function Home() {
-  const me = trpc.auth.me.useQuery();
   const utils = trpc.useUtils();
   const live = trpc.readings.live.useQuery(undefined, {
     // The server reuses a reading for a minute; this keeps an open tab current.
@@ -42,9 +41,6 @@ export default function Home() {
       void utils.readings.history.invalidate();
       void utils.readings.daily.invalidate();
     },
-  });
-  const logout = trpc.auth.logout.useMutation({
-    onSuccess: () => window.location.assign("/login"),
   });
 
   const reading = live.data?.reading;
@@ -71,41 +67,22 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold">HushJet</h1>
-            <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
-          </div>
-          <div className="flex items-center gap-2">
+      <SiteHeader
+        subtitle={subtitle}
+        actions={
+          <>
             {reading && (
               <span className="text-xs text-muted-foreground">
                 Updated {clockTime(reading.takenAt)}
               </span>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refresh.mutate()}
-              disabled={busy}
-            >
+            <Button variant="outline" size="sm" onClick={() => refresh.mutate()} disabled={busy}>
               <RefreshCw className={busy ? "animate-spin" : undefined} aria-hidden />
               Refresh
             </Button>
-            {me.data?.signInRequired && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => logout.mutate()}
-                disabled={logout.isPending}
-              >
-                <LogOut aria-hidden />
-                Sign out
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
         {error && (

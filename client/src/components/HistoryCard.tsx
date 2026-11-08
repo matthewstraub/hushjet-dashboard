@@ -48,7 +48,7 @@ const PM_CONFIG = {
 // de-emphasis gray rather than another series color.
 const OUTDOOR_CONFIG = {
   pm25: { label: "Indoors", color: "var(--series-1)" },
-  outdoor: { label: "Outdoors", color: "var(--muted-foreground)" },
+  outdoorPoint: { label: "Outdoors", color: "var(--muted-foreground)" },
 } satisfies ChartConfig;
 
 const FAN_CONFIG = {
@@ -178,7 +178,8 @@ export function HistoryCharts({
 }) {
   // Dyson's averages cover every 15 minutes; readings are only as often as
   // the sync runs, so they stand in for PM only until there's Dyson history.
-  const pmFromSlots = slots.length > 0;
+  // Real 15-minute slots, not rows that only hold an outdoor point.
+  const pmFromSlots = slots.some(row => !row.gap);
   // One time span for every chart, so they line up. Both lists are oldest first.
   const ends = [
     slots[0]?.t,
@@ -187,7 +188,7 @@ export function HistoryCharts({
     readings.at(-1)?.t,
   ].filter((t): t is number => t !== undefined);
   const span: [number, number] = [Math.min(...ends), Math.max(...ends)];
-  const hasOutdoor = slots.some(row => row.outdoor !== null);
+  const hasOutdoor = slots.some(row => row.outdoorPoint !== null);
   return (
     <div className="space-y-6">
       <div className="grid gap-8 lg:grid-cols-2">
@@ -210,7 +211,8 @@ export function HistoryCharts({
             config={OUTDOOR_CONFIG}
             data={slots}
             span={span}
-            steps={["outdoor"]}
+            sampled={["outdoorPoint"]}
+            note="Each gray dot is an hour of Dyson's outdoor estimate that was saved. The dashed line joins them across hours that weren't."
             slotted
           />
         )}
@@ -264,7 +266,8 @@ function TimeChart({
   yDomain,
   yTicks,
   slotted = false,
-  steps,
+  sampled,
+  note,
   className,
 }: {
   title: string;
@@ -276,8 +279,10 @@ function TimeChart({
   yTicks?: number[];
   /** Each row is a 15-minute slot, so the tooltip shows the span it covers. */
   slotted?: boolean;
-  /** Series that change hourly, drawn as steps. */
-  steps?: string[];
+  /** Series saved now and then: a dot per value, joined by a dashed line across the gaps. */
+  sampled?: string[];
+  /** A line under the chart. */
+  note?: string;
   className?: string;
 }) {
   const keys = Object.keys(config);
@@ -291,11 +296,19 @@ function TimeChart({
           <span className="flex gap-4 text-xs text-muted-foreground">
             {keys.map(key => (
               <span key={key} className="flex items-center gap-1.5">
-                <span
-                  aria-hidden
-                  className="h-0.5 w-3 rounded-full"
-                  style={{ backgroundColor: config[key]?.color }}
-                />
+                {sampled?.includes(key) ? (
+                  <span
+                    aria-hidden
+                    className="w-3 border-t-2 border-dashed"
+                    style={{ borderColor: config[key]?.color }}
+                  />
+                ) : (
+                  <span
+                    aria-hidden
+                    className="h-0.5 w-3 rounded-full"
+                    style={{ backgroundColor: config[key]?.color }}
+                  />
+                )}
                 {config[key]?.label}
               </span>
             ))}
@@ -349,22 +362,34 @@ function TimeChart({
           />
           {/* Drawn last to first, so where the series meet, as PM2.5 and PM10
               often do, the first is the one on top. */}
-          {[...keys].reverse().map(key => (
-            <Line
-              key={key}
-              dataKey={key}
-              type={steps?.includes(key) ? "stepAfter" : "linear"}
-              stroke={`var(--color-${key})`}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dot={false}
-              activeDot={{ r: 4, stroke: "var(--card)", strokeWidth: 2 }}
-              isAnimationActive={false}
-            />
-          ))}
+          {[...keys].reverse().map(key => {
+            const isSampled = sampled?.includes(key) ?? false;
+            return (
+              <Line
+                key={key}
+                dataKey={key}
+                type="linear"
+                stroke={`var(--color-${key})`}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                // Sampled series: an 8px dot with a surface ring per value, joined across gaps.
+                strokeDasharray={isSampled ? "4 4" : undefined}
+                connectNulls={isSampled}
+                // The dots would otherwise inherit the line's dashes.
+                dot={
+                  isSampled
+                    ? { r: 4, fill: `var(--color-${key})`, stroke: "var(--card)", strokeWidth: 2, strokeDasharray: "0" }
+                    : false
+                }
+                activeDot={{ r: 4, stroke: "var(--card)", strokeWidth: 2 }}
+                isAnimationActive={false}
+              />
+            );
+          })}
         </LineChart>
       </ChartContainer>
+      {note && <p className="text-xs text-muted-foreground">{note}</p>}
     </figure>
   );
 }
