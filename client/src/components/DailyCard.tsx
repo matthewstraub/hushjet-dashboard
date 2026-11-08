@@ -57,7 +57,7 @@ export function DailyCard() {
                   <td className={TD}>
                     <span className="inline-flex items-center gap-1">
                       {numberText(day.avgPm25)}
-                      {day.avgPm25 !== null && day.avgPm25 > guideline && (
+                      {day.aboveGuideline && (
                         <>
                           <TriangleAlert className="size-3.5 text-status-warning" aria-hidden />
                           <span className="sr-only">, above the WHO guideline</span>
@@ -70,7 +70,9 @@ export function DailyCard() {
                       ? "–"
                       : `${numberText(day.peakPm25)} at ${clockTime(day.peakAt)}`}
                   </td>
-                  <td className={TD}>{day.minutesAbove ? durationText(day.minutesAbove) : "None"}</td>
+                  <td className={TD}>
+                    {day.minutesAbove === null ? "–" : day.minutesAbove ? durationText(day.minutesAbove) : "None"}
+                  </td>
                   <td className={TD}>
                     {!day.spike
                       ? "–"

@@ -12,7 +12,6 @@ export const WHO_PM25_24H = 15;
 export const SPIKE_PM25 = 35;
 
 const SLOT_MINUTES = 15;
-const DAY_MS = 24 * 60 * 60_000;
 
 export interface DaySummary {
   /** The local date, YYYY-MM-DD. */
@@ -22,11 +21,13 @@ export interface DaySummary {
   /** Slots with PM2.5 data; a full day has 96. */
   slots: number;
   avgPm25: number | null;
+  /** Whether the day's average, before rounding, was over WHO_PM25_24H. */
+  aboveGuideline: boolean;
   peakPm25: number | null;
   /** When the slot with the peak began. */
   peakAt: Date | null;
-  /** Minutes in slots averaging over WHO_PM25_24H. */
-  minutesAbove: number;
+  /** Minutes in slots averaging over WHO_PM25_24H; null with no PM2.5 data. */
+  minutesAbove: number | null;
   /**
    * When the day's peak was a spike: minutes from it until a slot averaged
    * under WHO_PM25_24H again, or null if none has yet.
@@ -62,8 +63,19 @@ export function isTimeZone(name: string): boolean {
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
+function mean(values: number[]): number | null {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
 function average(values: number[]): number | null {
-  return values.length ? round1(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
+  const value = mean(values);
+  return value === null ? null : round1(value);
+}
+
+/** The date `n` calendar days before a YYYY-MM-DD date, whatever the clocks do. */
+export function daysBefore(date: string, n: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year!, month! - 1, day! - n)).toISOString().slice(0, 10);
 }
 
 /**
@@ -72,7 +84,8 @@ function average(values: number[]): number | null {
  */
 export function summarizeDays(slots: HistorySlot[], timeZone: string, days: number, now: Date): DaySummary[] {
   const today = localDate(now, timeZone);
-  const oldest = localDate(new Date(now.getTime() - (days - 1) * DAY_MS), timeZone);
+  // Counted in calendar days, so a clock change doesn't add or drop one.
+  const oldest = daysBefore(today, days - 1);
   const byDate = new Map<string, number[]>();
   slots.forEach((slot, index) => {
     const date = localDate(slot.slotStart, timeZone);
@@ -93,16 +106,19 @@ export function summarizeDays(slots: HistorySlot[], timeZone: string, days: numb
     }, null);
     const peak = peakIndex === null ? null : slots[peakIndex]!;
     const ran = day.filter(slot => slot.runSeconds !== null && slot.runSeconds > 0);
+    const pmMean = mean(pm.map(slot => slot.pm25!));
     const runSeconds = day.filter(slot => slot.runSeconds !== null).map(slot => slot.runSeconds!);
 
     summaries.push({
       date,
       today: date === today,
       slots: pm.length,
-      avgPm25: average(pm.map(slot => slot.pm25!)),
+      avgPm25: pmMean === null ? null : round1(pmMean),
+      // From the unrounded mean, so 15.04 counts though it shows as 15.
+      aboveGuideline: pmMean !== null && pmMean > WHO_PM25_24H,
       peakPm25: peak?.pm25 ?? null,
       peakAt: peak?.slotStart ?? null,
-      minutesAbove: pm.filter(slot => slot.pm25! > WHO_PM25_24H).length * SLOT_MINUTES,
+      minutesAbove: pm.length ? pm.filter(slot => slot.pm25! > WHO_PM25_24H).length * SLOT_MINUTES : null,
       spike: peakIndex !== null && peak!.pm25! >= SPIKE_PM25 ? { clearedMinutes: clearedAfter(slots, peakIndex) } : null,
       avgFanSpeed: average(ran.filter(slot => slot.fanSpeed !== null).map(slot => slot.fanSpeed!)),
       fanHours: runSeconds.length ? round1(runSeconds.reduce((sum, seconds) => sum + seconds, 0) / 3600) : null,

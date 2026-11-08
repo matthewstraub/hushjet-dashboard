@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HistorySlot } from "./dyson/history";
-import { isTimeZone, localDate, summarizeDays } from "./dailySummary";
+import { daysBefore, isTimeZone, localDate, summarizeDays } from "./dailySummary";
 
 const NY = "America/New_York";
 // Saturday, Nov 7, 5 PM in New York.
@@ -78,9 +78,62 @@ describe("summarizeDays", () => {
     const [day] = summarizeDays([slot("2026-11-07T15:00:00Z", null), slot("2026-11-07T15:15:00Z", 4)], NY, 7, NOW);
     expect(day).toMatchObject({ slots: 1, avgPm25: 4, peakPm25: 4, fanHours: 0.5 });
   });
+
+  it("leaves time over the guideline unknown on a day with no PM2.5 at all", () => {
+    const [day] = summarizeDays([slot("2026-11-07T15:00:00Z", null)], NY, 7, NOW);
+    expect(day).toMatchObject({ slots: 0, avgPm25: null, aboveGuideline: false, minutesAbove: null, spike: null });
+  });
+
+  it("decides the WHO warning before rounding", () => {
+    const slots = Array.from({ length: 96 }, (_, i) =>
+      slot(new Date(Date.parse("2026-11-07T05:00:00Z") + i * 15 * 60_000).toISOString(), i ? 15 : 18)
+    );
+    const [day] = summarizeDays(slots, NY, 7, new Date("2026-11-08T04:59:00Z"));
+    expect(day).toMatchObject({ avgPm25: 15, aboveGuideline: true });
+    expect(summarizeDays(slots.slice(1), NY, 7, NOW)[0]).toMatchObject({ avgPm25: 15, aboveGuideline: false });
+  });
+
+  it("counts calendar days across a clock change", () => {
+    // 12:30 AM on March 9 in New York, the day after clocks went forward, and
+    // 11:30 PM on November 2, the day after they went back.
+    const spring = new Date("2026-03-09T04:30:00Z");
+    const springHourly = Array.from({ length: 24 * 9 }, (_, i) =>
+      slot(new Date(spring.getTime() - i * 60 * 60_000).toISOString(), 3)
+    );
+    expect(summarizeDays(springHourly.reverse(), NY, 7, spring).map(day => day.date)).toEqual([
+      "2026-03-09",
+      "2026-03-08",
+      "2026-03-07",
+      "2026-03-06",
+      "2026-03-05",
+      "2026-03-04",
+      "2026-03-03",
+    ]);
+    const fall = new Date("2026-11-03T04:30:00Z");
+    const hourly = Array.from({ length: 24 * 9 }, (_, i) =>
+      slot(new Date(fall.getTime() - i * 60 * 60_000).toISOString(), 3)
+    );
+    expect(summarizeDays(hourly.reverse(), NY, 7, fall).map(day => day.date)).toEqual([
+      "2026-11-02",
+      "2026-11-01",
+      "2026-10-31",
+      "2026-10-30",
+      "2026-10-29",
+      "2026-10-28",
+      "2026-10-27",
+    ]);
+  });
 });
 
-describe("localDate and isTimeZone", () => {
+describe("localDate, daysBefore and isTimeZone", () => {
+  it("steps back calendar days, across months and years", () => {
+    expect([daysBefore("2026-11-07", 6), daysBefore("2026-03-01", 1), daysBefore("2026-01-01", 1)]).toEqual([
+      "2026-11-01",
+      "2026-02-28",
+      "2025-12-31",
+    ]);
+  });
+
   it("puts 4:30 UTC on the previous day in New York", () => {
     expect(localDate(new Date("2026-11-06T04:30:00Z"), NY)).toBe("2026-11-05");
     expect(localDate(new Date("2026-11-06T04:30:00Z"), "UTC")).toBe("2026-11-06");
