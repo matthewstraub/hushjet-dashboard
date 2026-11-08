@@ -4,7 +4,9 @@
 # Readings and raw MQTT captures
 data/
 
-.venv/
+# No trailing slash: .venv can be a link to an environment outside iCloud;
+# see README.md.
+.venv
 __pycache__/
 *.pyc
 .pytest_cache/

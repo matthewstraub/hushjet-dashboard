@@ -16,7 +16,10 @@ log = logging.getLogger(__name__)
 
 API_HOST = "https://appapi.cp.dyson.com"
 API_HOST_CN = "https://appapi.cp.dyson.cn"
-DEFAULT_USER_AGENT = "android client"
+# The MyDyson iOS app's header. libdyson-rest moved to it in October 2026
+# after "android client" (what the spec and the handoff used) started getting
+# 429s at login. Set DYSON_USER_AGENT to send something else.
+DEFAULT_USER_AGENT = "DysonLink/205298 Darwin/27.0.0"
 DEFAULT_POLL_SECONDS = 30.0
 DEFAULT_MQTT_PORT = 1883
 

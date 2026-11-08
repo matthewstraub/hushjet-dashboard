@@ -59,7 +59,7 @@ def test_login_requests_match_the_spec():
 
     assert challenge == CHALLENGE and login["tokenType"] == "Bearer"
     for request in cloud.requests:
-        assert request.headers["User-Agent"] == "android client"
+        assert request.headers["User-Agent"] == "DysonLink/205298 Darwin/27.0.0"
         if request.method == "POST":
             assert request.headers["Content-Type"] == "application/json"
     _, status, begin, verify, manifest = cloud.requests

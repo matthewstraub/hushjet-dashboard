@@ -141,6 +141,7 @@ npx pnpm@10.4.1 sync
 | `DYSON_TOKEN` | In production | The token from `hushjet login`. Locally it's read from the CLI's saved login instead |
 | `DYSON_SERIAL` | Optional | Which device, when the account has more than one HushJet |
 | `DYSON_COUNTRY` | Optional | Defaults to US; CN uses Dyson's China host |
+| `DYSON_USER_AGENT` | Optional | The User-Agent for Dyson's API. Defaults to the MyDyson iOS app's, `DysonLink/205298 Darwin/27.0.0` |
 | `HUSHJET_STATE_DIR` | Optional | Where `hushjet login` saved its token, if not `~/.config/hushjet` |
 | `PORT` | Optional | Defaults to 3000 |
 

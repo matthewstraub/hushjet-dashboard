@@ -18,7 +18,7 @@ from hushjet.redact import REDACTED, redact
 def test_settings_defaults():
     settings = Settings.from_env({})
     assert settings.country == "US" and settings.culture == "en-US"
-    assert settings.user_agent == "android client" and settings.api_base == API_HOST
+    assert settings.user_agent == "DysonLink/205298 Darwin/27.0.0" and settings.api_base == API_HOST
     assert settings.poll_seconds == 30 and settings.port == 1883
 
 

@@ -30,7 +30,7 @@ describe("DysonAppApi", () => {
     expect(await api.iotCredentials(SERIAL)).toEqual(IOT_RESPONSE);
 
     expect(calls.map(call => call.url.pathname)).toEqual([PATH_PROVISION, PATH_MANIFEST, PATH_IOT_CREDENTIALS]);
-    expect(calls.every(call => headersOf(call.init).get("User-Agent") === "android client")).toBe(true);
+    expect(calls.every(call => headersOf(call.init).get("User-Agent") === "DysonLink/205298 Darwin/27.0.0")).toBe(true);
     expect(headersOf(calls[0]!.init).get("Authorization")).toBeNull();
     expect(headersOf(calls[1]!.init).get("Authorization")).toBe(`Bearer ${TOKEN}`);
 

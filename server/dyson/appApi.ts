@@ -10,7 +10,12 @@
 
 export const API_BASE = "https://appapi.cp.dyson.com";
 export const API_BASE_CN = "https://appapi.cp.dyson.cn";
-export const DEFAULT_USER_AGENT = "android client";
+/**
+ * The MyDyson iOS app's header. libdyson-rest moved to it in October 2026
+ * after "android client" (what the spec and the handoff used) started
+ * getting 429s at login. Set DYSON_USER_AGENT to send something else.
+ */
+export const DEFAULT_USER_AGENT = "DysonLink/205298 Darwin/27.0.0";
 
 export const PATH_PROVISION = "/v1/provisioningservice/application/Android/version";
 export const PATH_MANIFEST = "/v3/manifest";

@@ -18,6 +18,13 @@ here from that folder.
 uv sync
 ```
 
+If the repo is in an iCloud-synced folder like `~/Documents`, keep the
+environment outside it, with `.venv` linking to it (Troubleshooting says why):
+
+```bash
+uv venv ~/.local/share/hushjet/cli-venv && ln -s ~/.local/share/hushjet/cli-venv .venv && uv sync
+```
+
 Optional: `cp .env.example .env` and set `DYSON_EMAIL`, plus `DYSON_HOST` if
 mDNS can't find the purifier. Without a `.env`, `login` prompts for the email.
 Leave `DYSON_PASSWORD` unset so the password is typed at a hidden prompt
@@ -128,9 +135,10 @@ it stands in for Dyson's AWS IoT broker and checks the handshake headers. See
 
 - **MQTT 3.1.** libdyson-neon connects with protocol 3.1 (`MQIsdp`), and the
   HJ10 patch runs on it, so this does the same.
-- **User-Agent.** libdyson-neon and the spec still send `android client`;
-  libdyson-rest has moved to `DysonLink/205298 Darwin/27.0.0`. The default is
-  `android client`; set `DYSON_USER_AGENT` if Dyson starts refusing it.
+- **User-Agent.** libdyson-neon and the spec still send `android client`, as
+  the handoff said to. libdyson-rest moved to `DysonLink/205298 Darwin/27.0.0`,
+  the MyDyson iOS app's header, after `android client` logins started getting
+  429s, and this does the same. Set `DYSON_USER_AGENT` to send something else.
 - **Sensor words.** libdyson-neon treats `OFF`, `INIT` and `FAIL` as sensor
   values, so they are handled here too.
 - **Credential key.** libdyson-rest decrypts the v3 `localBrokerCredentials`
@@ -176,5 +184,11 @@ it stands in for Dyson's AWS IoT broker and checks the handshake headers. See
 - **"the IoT credentials may have expired"** with `--cloud`: run the command
   again; it fetches new ones.
 - **PM shows `off`**: Continuous monitoring is off.
+- **`No module named 'hushjet'`**: in an iCloud-synced folder like
+  `~/Documents`, files inside `.venv` keep getting macOS's hidden flag (even
+  in a `.nosync` folder), and Python 3.13 and later skip hidden `.pth` files,
+  which is how `uv sync` links this package in. Move the environment out of
+  the synced folder and link it back:
+  `rm -rf .venv && uv venv ~/.local/share/hushjet/cli-venv && ln -s ~/.local/share/hushjet/cli-venv .venv && uv sync`.
 
 Not built yet, as the handoff allows: commands (`STATE-SET`) and a dashboard.
