@@ -82,4 +82,24 @@ describe("withOutdoor", () => {
       ["05:00", null, null],
     ]);
   });
+
+  it("puts a saved hour's point at the hour even when the history has no row there", () => {
+    // History resumes at 03:15 after a gap, and ends before the 05:00 hour.
+    const rows = slotRows([slot("2026-11-08T02:30:00Z"), slot("2026-11-08T03:15:00Z"), slot("2026-11-08T03:30:00Z")]);
+    const outdoor = [
+      { measuredAt: "2026-11-08T03:00:00Z", pm25: 7 },
+      { measuredAt: "2026-11-08T05:00:00Z", pm25: 5 },
+    ];
+    const result = withOutdoor(rows, outdoor);
+    expect(
+      result.map(row => [new Date(row.t).toISOString().slice(11, 16), row.pm25, row.outdoor, row.outdoorPoint, row.gap ?? false])
+    ).toEqual([
+      ["02:30", 2.5, null, null, false],
+      ["02:45", null, null, null, true], // slotRows' gap row
+      ["03:00", null, null, 7, true], // the 03:00 point on a row of its own
+      ["03:15", 2.5, 7, null, false],
+      ["03:30", 2.5, 7, null, false],
+      ["05:00", null, null, 5, true], // past the end of the history
+    ]);
+  });
 });

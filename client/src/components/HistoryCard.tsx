@@ -178,7 +178,8 @@ export function HistoryCharts({
 }) {
   // Dyson's averages cover every 15 minutes; readings are only as often as
   // the sync runs, so they stand in for PM only until there's Dyson history.
-  const pmFromSlots = slots.length > 0;
+  // Real 15-minute slots, not rows that only hold an outdoor point.
+  const pmFromSlots = slots.some(row => !row.gap);
   // One time span for every chart, so they line up. Both lists are oldest first.
   const ends = [
     slots[0]?.t,
