@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollRegion } from "@/components/ScrollRegion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clockTime, dayLabel, durationText, numberText } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
@@ -35,7 +36,7 @@ export function DailyCard() {
     const { guideline, spike } = daily.data.thresholds;
     body = (
       <>
-        <div className="overflow-x-auto">
+        <ScrollRegion label="Daily summary, by day">
           <table className="w-full text-left text-sm tabular-nums">
             <thead className="text-muted-foreground">
               <tr>
@@ -91,7 +92,7 @@ export function DailyCard() {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
         <p className="mt-3 text-xs text-muted-foreground">
           PM2.5 in µg/m³, from Dyson's 15-minute averages, by day in your time zone. {guideline} is
           the WHO's guideline for a 24-hour average; a warning sign marks a day above it. A spike is
