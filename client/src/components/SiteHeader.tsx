@@ -1,12 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 const PAGES = [
   { href: "/", label: "Dashboard" },
   { href: "/info", label: "Info" },
+  // Pushed to the far right, under the page's own controls.
+  { href: "/settings", label: "Settings", end: true },
 ];
 
 /** The title, the page's own controls, sign-out, and tabs for the pages. */
@@ -48,12 +50,14 @@ export function SiteHeader({ subtitle, actions }: { subtitle: string; actions?: 
               href={page.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "-mb-px rounded-t-sm border-b-2 pb-2 text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "-mb-px flex items-center gap-1.5 rounded-t-sm border-b-2 pb-2 text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                page.end && "ml-auto",
                 active
                   ? "border-primary font-medium text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
+              {page.end && <Settings className="size-3.5" aria-hidden />}
               {page.label}
             </Link>
           );

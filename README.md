@@ -8,7 +8,12 @@ Recharts client, an Express and tRPC server, Drizzle on TiDB, password
 sign-in, and a free Render web service.
 
 The dashboard's Info tab explains the purifier, where each number comes from,
-and terms like PM2.5, µg/m³, AQI and NO₂.
+and terms like PM2.5, µg/m³, AQI and NO₂. Its Settings tab picks light, dark,
+or the device's theme (the default), saved in each browser.
+
+The look follows Dyson's own: Futura-style type in a quiet black, white and
+gray interface. Dyson's DysonFutura is proprietary, so it uses Jost, a free
+typeface modeled on Futura, and no Dyson logos or font files are in the repo.
 
 This is unofficial. It relies on the community-documented MyDyson App API,
 which Dyson can change without notice.

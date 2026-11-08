@@ -216,36 +216,51 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// The dashboard's colors (client/src/index.css), light by default and dark
+// with the system or the choice saved in Settings (THEME_SCRIPT applies it).
+const DARK_TOKENS = `
+    color-scheme: dark;
+    --bg: #0f0f0f; --card: #1a1a1a; --text: #f2f2f2; --muted: #a3a3a3;
+    --border: #2e2e2e; --input: #262626; --accent: #f2f2f2; --accent-text: #111111;`;
+
 const PAGE_STYLE = `
-  :root { color-scheme: dark; }
+  :root {
+    color-scheme: light;
+    --bg: #f5f5f5; --card: #ffffff; --text: #333333; --muted: #6b6b6b;
+    --border: #e3e3e3; --input: #ffffff; --accent: #111111; --accent-text: #ffffff;
+    --error: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) { :root:not(.light) {${DARK_TOKENS} } }
+  :root.dark {${DARK_TOKENS} }
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px;
-    background: oklch(0.16 0.014 264); color: oklch(0.88 0.01 264);
-    font: 15px/1.5 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 "Jost", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   main {
     width: 100%; max-width: 380px; padding: 28px;
-    background: oklch(0.19 0.016 264); border: 1px solid oklch(0.28 0.02 264); border-radius: 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
   }
-  h1 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
-  p { margin: 0 0 20px; font-size: 13px; color: oklch(0.58 0.02 264); }
-  label { display: block; margin-bottom: 6px; font-size: 12px; color: oklch(0.58 0.02 264);
-    font-family: "Fira Code", ui-monospace, monospace; }
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 500; }
+  p { margin: 0 0 20px; font-size: 13px; color: var(--muted); }
+  label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   input[type=password] {
     width: 100%; padding: 10px 12px; font-size: 15px; color: inherit;
-    background: oklch(0.25 0.018 264); border: 1px solid oklch(0.28 0.02 264); border-radius: 8px;
+    background: var(--input); border: 1px solid var(--border); border-radius: 8px;
   }
-  input[type=password]:focus { outline: 2px solid oklch(0.72 0.15 180); outline-offset: 1px; }
+  input[type=password]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   button {
-    width: 100%; margin-top: 16px; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
-    color: oklch(0.16 0.014 264); background: oklch(0.72 0.15 180); border: 0; border-radius: 8px;
+    width: 100%; margin-top: 16px; padding: 10px; font: inherit; font-size: 14px; font-weight: 500;
+    cursor: pointer; color: var(--accent-text); background: var(--accent); border: 0; border-radius: 8px;
   }
   .error { margin: 0 0 16px; padding: 8px 12px; font-size: 13px; border-radius: 8px;
-    color: oklch(0.65 0.2 25); background: oklch(0.65 0.2 25 / 0.1);
-    border: 1px solid oklch(0.65 0.2 25 / 0.3); }
+    color: var(--error); border: 1px solid var(--error); }
   code { font-family: "Fira Code", ui-monospace, monospace; font-size: 12px; }
 `;
+
+/** Applies the theme saved in Settings, if any, before the page draws. */
+const THEME_SCRIPT = `try { var t = localStorage.getItem("theme"); if (t === "dark" || t === "light") document.documentElement.classList.add(t); } catch (e) {}`;
 
 function page(title: string, body: string): string {
   return `<!doctype html>
@@ -255,6 +270,10 @@ function page(title: string, body: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>${escapeHtml(title)}</title>
+<script>${THEME_SCRIPT}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400&family=Jost:wght@400;500&display=swap" rel="stylesheet">
 <style>${PAGE_STYLE}</style>
 </head>
 <body><main>${body}</main></body>

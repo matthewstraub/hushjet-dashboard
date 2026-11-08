@@ -8,9 +8,25 @@
       content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <title>HushJet</title>
+    <!-- Light or dark before the first paint: the choice saved in Settings, or
+         the system's. ThemeContext keeps it current after that. -->
+    <script>
+      (function () {
+        var dark;
+        try {
+          var saved = localStorage.getItem("theme");
+          dark = saved === "dark" || (saved !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        } catch (e) {
+          dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        }
+        if (dark) document.documentElement.classList.add("dark");
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Jost: a free typeface modeled on Futura, which Dyson's own type is based on. -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet" />
   </head>
 
   <body>
