@@ -24,6 +24,9 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-status-good: var(--status-good);
+  --color-status-warning: var(--status-warning);
+  --color-status-critical: var(--status-critical);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -77,6 +80,11 @@
      warnings. */
   --series-1: oklch(0.66 0.13 180);
   --series-2: oklch(0.62 0.2 290);
+  /* Status, only ever on an icon beside a text label: the dataviz reference
+     steps, each 3.5:1 or better on --card and distinct from the series. */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
   --sidebar: oklch(0.14 0.012 264);
   --sidebar-foreground: oklch(0.88 0.01 264);
   --sidebar-primary: oklch(0.72 0.15 180);

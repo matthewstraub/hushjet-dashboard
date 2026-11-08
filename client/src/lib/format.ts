@@ -96,6 +96,16 @@ export function fullTime(ms: number): string {
   });
 }
 
+/** "just now", "12 min ago", "3 h ago", "2 days ago". */
+export function agoText(ms: number, now: number): string {
+  const minutes = Math.floor((now - ms) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours} h ago`;
+  return `${Math.floor(hours / 24)} days ago`;
+}
+
 /** "Nov 5, 2:00 AM – 2:15 AM": the time a 15-minute slot covers. */
 export function slotTime(ms: number, lengthMs = 15 * 60_000): string {
   return `${fullTime(ms)} – ${clockTime(ms + lengthMs)}`;

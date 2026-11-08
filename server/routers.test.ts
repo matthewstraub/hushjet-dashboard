@@ -14,8 +14,14 @@ vi.mock("./live", () => ({ liveReader: { get: vi.fn() } }));
 vi.mock("./historyRefresh", () => ({
   historyRefresher: { refresh: vi.fn(async () => {}) },
 }));
-vi.mock("./historyStore", () => ({ storedSlots: vi.fn(async () => []) }));
-vi.mock("./readingsStore", () => ({ storedHistory: vi.fn(async () => []) }));
+vi.mock("./historyStore", () => ({
+  storedSlots: vi.fn(async () => []),
+  newestSlotStart: vi.fn(async () => new Date("2026-11-07T21:30:00Z")),
+}));
+vi.mock("./readingsStore", () => ({
+  storedHistory: vi.fn(async () => []),
+  latestSyncAt: vi.fn(async () => new Date("2026-11-07T20:34:41Z")),
+}));
 vi.mock("./db", async importOriginal => ({
   ...(await importOriginal<typeof import("./db")>()),
   getDb: vi.fn(async () => null),
@@ -44,8 +50,22 @@ describe("readings", () => {
   it("reports what's configured without revealing the token", async () => {
     vi.stubEnv("DYSON_TOKEN", "secret-token");
     const status = await viewer().readings.status();
-    expect(status).toEqual({ databaseConfigured: false, dysonTokenSource: "DYSON_TOKEN" });
+    expect(status).toEqual({
+      databaseConfigured: false,
+      dysonTokenSource: "DYSON_TOKEN",
+      lastSyncAt: null,
+      newestSlot: null,
+    });
     expect(JSON.stringify(status)).not.toContain("secret-token");
+  });
+
+  it("reports when the sync last ran and the newest saved slot", async () => {
+    vi.mocked(getDb).mockResolvedValueOnce({} as never);
+    expect(await viewer().readings.status()).toMatchObject({
+      databaseConfigured: true,
+      lastSyncAt: new Date("2026-11-07T20:34:41Z"),
+      newestSlot: new Date("2026-11-07T21:30:00Z"),
+    });
   });
 
   it("returns the live reading, and only what the page needs about the device", async () => {

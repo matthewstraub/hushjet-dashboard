@@ -11,9 +11,9 @@ import { DysonConfigError, dysonTokenSource } from "./dyson/config";
 import { DeviceSelectionError } from "./dyson/devices";
 import { SnapshotError } from "./dyson/snapshot";
 import { historyRefresher } from "./historyRefresh";
-import { storedSlots } from "./historyStore";
+import { newestSlotStart, storedSlots } from "./historyStore";
 import { liveReader } from "./live";
-import { storedHistory } from "./readingsStore";
+import { latestSyncAt, storedHistory } from "./readingsStore";
 
 /** How long page loads reuse a live reading. */
 export const LIVE_MAX_AGE_MS = 60_000;
@@ -92,11 +92,17 @@ export const appRouter = router({
     }),
   }),
   readings: router({
-    /** What's set up: a database for history, and where the Dyson token comes from. */
-    status: viewerProcedure.query(async () => ({
-      databaseConfigured: (await getDb()) !== null,
-      dysonTokenSource: dysonTokenSource(),
-    })),
+    /**
+     * What's set up (a database for history, where the Dyson token comes
+     * from) and how current the stored data is.
+     */
+    status: viewerProcedure.query(async () => {
+      const databaseConfigured = (await getDb()) !== null;
+      const [lastSyncAt, newestSlot] = databaseConfigured
+        ? await Promise.all([latestSyncAt(), newestSlotStart()])
+        : [null, null];
+      return { databaseConfigured, dysonTokenSource: dysonTokenSource(), lastSyncAt, newestSlot };
+    }),
     /** The purifier right now, read through Dyson's cloud and reused for a minute. */
     live: viewerProcedure.query(() => liveReading(LIVE_MAX_AGE_MS)),
     /** Read again now, unless a read finished in the last few seconds. */

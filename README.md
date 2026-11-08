@@ -26,13 +26,31 @@ which Dyson can change without notice.
 1. Get the device list (`/v3/manifest`) and pick the HushJet, product type 897.
 2. Get fresh AWS IoT credentials for it (`/v2/authorize/iot-credentials`).
 3. Connect to Dyson's broker with MQTT 3.1.1 over TLS websockets, ask for the
-   current state and sensor data, wait for both, and disconnect.
+   current state, sensor data and fault report, wait for them, and
+   disconnect. The purifier now and then ignores a request, so anything
+   missing is asked for once more; a reading without its fault report still
+   counts.
 
 That takes about three seconds and works from anywhere, so neither the server
 nor the sync needs to be on the purifier's network. The dashboard reuses a
 reading for a minute, refreshes an open tab every two minutes, and does a new
 read when you press Refresh. Every new reading is stored when `DATABASE_URL`
 is set.
+
+## Status
+
+The status card on the dashboard shows:
+
+- **Purifier checks:** the purifier's own fault report, 28 checks on the
+  HJ10, each "OK" when fine. One is the filter warning (`fltr`); what most of
+  the other codes mean isn't documented, so a problem shows its raw code.
+- **Dyson cloud:** whether the last live reading worked, or why not (for
+  example, Dyson rejecting the token).
+- **Wi-Fi signal:** from the purifier's state message, in dBm.
+- **Firmware:** whether Dyson has an update waiting.
+- **Scheduled sync:** when `pnpm sync` last stored a reading. GitHub runs it
+  irregularly, so it only warns after six hours.
+- **Saved history:** the newest 15-minute slot in the database.
 
 ## History
 

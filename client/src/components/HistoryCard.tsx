@@ -27,7 +27,7 @@ import {
 import { slotRows, type SlotRow } from "@/lib/history";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
 // Short labels, so the tabs leave room for the title on a phone.
@@ -67,6 +67,12 @@ type Row = { t: number };
 export function HistoryCard() {
   const [range, setRange] = useState<Range>("24h");
   const history = trpc.readings.history.useQuery({ range });
+  const utils = trpc.useUtils();
+  // Loading the history copies Dyson's newest slots first, so the status
+  // card's "saved history" may have moved on.
+  useEffect(() => {
+    if (history.dataUpdatedAt) void utils.readings.status.invalidate();
+  }, [history.dataUpdatedAt, utils]);
   const readings = useMemo<ReadingRow[]>(
     () =>
       (history.data?.points ?? []).map(point => ({
