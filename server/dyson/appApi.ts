@@ -10,11 +10,26 @@
 
 export const API_BASE = "https://appapi.cp.dyson.com";
 export const API_BASE_CN = "https://appapi.cp.dyson.cn";
-export const DEFAULT_USER_AGENT = "android client";
+/**
+ * The MyDyson iOS app's header. libdyson-rest moved to it in October 2026
+ * after "android client" (what the spec and the handoff used) started
+ * getting 429s at login. Set DYSON_USER_AGENT to send something else.
+ */
+export const DEFAULT_USER_AGENT = "DysonLink/205298 Darwin/27.0.0";
 
 export const PATH_PROVISION = "/v1/provisioningservice/application/Android/version";
 export const PATH_MANIFEST = "/v3/manifest";
 export const PATH_IOT_CREDENTIALS = "/v2/authorize/iot-credentials";
+/**
+ * Paths with the serial in them. Errors show these templates rather than
+ * the real path, since `pnpm sync --ci` prints errors to a public log.
+ */
+export const PATH_HISTORY = "/v1/messageprocessor/devices/{serial}/environmentdata/daily";
+export const PATH_OUTDOOR = "/v1/environment/devices/{serial}/data";
+
+function withSerial(template: string, serial: string): string {
+  return template.replace("{serial}", encodeURIComponent(serial));
+}
 
 export type JsonObject = Record<string, unknown>;
 
@@ -90,17 +105,29 @@ export class DysonAppApi {
    * Null when Dyson has none.
    */
   async environmentHistory(serial: string): Promise<JsonObject | null> {
-    const path = `/v1/messageprocessor/devices/${encodeURIComponent(serial)}/environmentdata/daily`;
-    const data = await this.send("GET", path);
+    const data = await this.send("GET", withSerial(PATH_HISTORY, serial), { label: PATH_HISTORY });
     if (data === null) return null;
     if (!isObject(data)) throw new DysonApiError("The history response wasn't an object");
+    return data;
+  }
+
+  /**
+   * Dyson's hourly outdoor air figures for the purifier's area: AQI, PM2.5,
+   * PM10 and NO2. The response also names the place; see outdoor.ts, which
+   * leaves that out. Null when Dyson has none.
+   */
+  async outdoorAir(serial: string): Promise<JsonObject | null> {
+    const path = `${withSerial(PATH_OUTDOOR, serial)}?language=en`;
+    const data = await this.send("GET", path, { label: PATH_OUTDOOR });
+    if (data === null) return null;
+    if (!isObject(data)) throw new DysonApiError("The outdoor air response wasn't an object");
     return data;
   }
 
   private async send(
     method: "GET" | "POST",
     path: string,
-    { auth = true, body }: { auth?: boolean; body?: JsonObject } = {}
+    { auth = true, body, label = path }: { auth?: boolean; body?: JsonObject; label?: string } = {}
   ): Promise<unknown> {
     if (path !== PATH_PROVISION && !this.provisioned) await this.provision();
     const headers: Record<string, string> = { "User-Agent": this.userAgent };
@@ -118,13 +145,13 @@ export class DysonAppApi {
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new DysonApiError(`${method} ${path} failed: ${reason}`);
+      throw new DysonApiError(`${method} ${label} failed: ${reason}`);
     }
 
     const { status } = response;
     if (status === 401 || status === 403) {
       throw new DysonAuthError(
-        `Dyson rejected the token (${method} ${path} returned ${status}). ` +
+        `Dyson rejected the token (${method} ${label} returned ${status}). ` +
           "Log in again with `hushjet login --force` in cli/.",
         status
       );
@@ -132,7 +159,7 @@ export class DysonAppApi {
     if (status === 429) {
       throw new DysonApiError("Dyson says too many requests (429); wait before trying again", status);
     }
-    if (!response.ok) throw new DysonApiError(`${method} ${path} returned ${status}`, status);
+    if (!response.ok) throw new DysonApiError(`${method} ${label} returned ${status}`, status);
 
     const text = await response.text();
     if (status === 204 || !text.trim()) return null; // No content, e.g. no history yet.
@@ -140,7 +167,7 @@ export class DysonAppApi {
       return JSON.parse(text);
     } catch {
       if (path === PATH_PROVISION) return text; // A bare version string is fine here.
-      throw new DysonApiError(`${path} didn't return JSON`);
+      throw new DysonApiError(`${label} didn't return JSON`);
     }
   }
 }

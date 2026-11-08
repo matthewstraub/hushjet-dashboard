@@ -21,6 +21,7 @@ from hushjet.appapi import (
     PATH_USER_STATUS,
     DysonAppAPI,
 )
+from hushjet.config import DEFAULT_USER_AGENT
 from hushjet.credentials import IV, KEY
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -135,7 +136,7 @@ class FakeCloud:
     def api(self, token: str | None = None) -> DysonAppAPI:
         return DysonAppAPI(
             "https://appapi.cp.dyson.com",
-            user_agent="android client",
+            user_agent=DEFAULT_USER_AGENT,
             country="US",
             culture="en-US",
             token=token,

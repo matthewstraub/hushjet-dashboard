@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { slotRows } from "./history";
+import { slotRows, withOutdoor } from "./history";
 
 const slot = (iso: string, pm25: number | null = 2.5) => ({
   slotStart: new Date(iso),
@@ -54,5 +54,30 @@ describe("slotRows", () => {
         { ...slot("2026-11-05T02:00:00Z"), slotStart: "2026-11-05T02:00:00Z" },
       ])[0]!.t
     ).toBe(Date.parse("2026-11-05T02:00:00Z"));
+  });
+});
+
+describe("withOutdoor", () => {
+  it("gives each slot its hour's outdoor figure, and none once the hour has passed", () => {
+    const rows = slotRows([
+      slot("2026-11-08T02:45:00Z"),
+      slot("2026-11-08T03:00:00Z"),
+      slot("2026-11-08T03:45:00Z"),
+      slot("2026-11-08T04:00:00Z"),
+      slot("2026-11-08T05:00:00Z"),
+    ]);
+    const outdoor = [
+      { measuredAt: "2026-11-08T04:00:00Z", pm25: 9 },
+      { measuredAt: new Date("2026-11-08T03:00:00Z"), pm25: 7 },
+    ];
+    expect(withOutdoor(rows, outdoor).map(row => [new Date(row.t).toISOString().slice(11, 16), row.outdoor])).toEqual([
+      ["02:45", null],
+      ["03:00", 7],
+      ["03:15", null], // the gap row for the missing slots: the line breaks there
+      ["03:45", 7],
+      ["04:00", 9],
+      ["04:15", null], // the gap row before 05:00
+      ["05:00", null],
+    ]);
   });
 });

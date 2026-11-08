@@ -1,5 +1,6 @@
 import { DailyCard } from "@/components/DailyCard";
 import { HistoryCard } from "@/components/HistoryCard";
+import { AirComparisonCard } from "@/components/AirComparisonCard";
 import { StatusCard } from "@/components/StatusCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -171,6 +172,8 @@ export default function Home() {
             </CardContent>
           </Card>
         )}
+
+        <AirComparisonCard indoor={reading} />
 
         <StatusCard
           loading={loading}

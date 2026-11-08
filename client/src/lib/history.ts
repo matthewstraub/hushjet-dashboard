@@ -54,3 +54,31 @@ export function slotRows(slots: SlotInput[]): SlotRow[] {
   }
   return rows;
 }
+
+/** One of Dyson's hourly outdoor figures; see server/dyson/outdoor.ts. */
+export interface OutdoorInput {
+  measuredAt: Date | string;
+  pm25: number | null;
+}
+
+export type SlotRowWithOutdoor = SlotRow & { outdoor: number | null };
+
+const HOUR_MS = 60 * 60_000;
+
+/**
+ * Slot rows with Dyson's outdoor PM2.5 alongside: each hour's figure for the
+ * slots in that hour, and nothing once an hour has no figure. Rows must be
+ * oldest first, as slotRows returns them.
+ */
+export function withOutdoor(rows: SlotRow[], outdoor: OutdoorInput[]): SlotRowWithOutdoor[] {
+  const hours = outdoor
+    .map(hour => ({ t: new Date(hour.measuredAt).getTime(), pm25: hour.pm25 }))
+    .sort((a, b) => a.t - b.t);
+  let index = -1;
+  return rows.map(row => {
+    while (index + 1 < hours.length && hours[index + 1]!.t <= row.t) index++;
+    const hour = index >= 0 ? hours[index]! : null;
+    const current = hour && !row.gap && row.t - hour.t < HOUR_MS;
+    return { ...row, outdoor: current ? hour.pm25 : null };
+  });
+}

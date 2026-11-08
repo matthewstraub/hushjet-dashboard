@@ -6,8 +6,10 @@ import {
   type HistorySlot,
 } from "./dyson/history";
 import { readPurifier, type LiveReading } from "./dyson/live";
+import type { OutdoorAir } from "./dyson/outdoor";
 import type { Reading } from "./dyson/messages";
 import { saveHistory } from "./historyStore";
+import { saveOutdoor } from "./outdoorStore";
 import { saveReading } from "./readingsStore";
 import { summary } from "./readingSummary";
 
@@ -26,6 +28,7 @@ export interface SyncOptions {
     serial: string,
     slots: HistorySlot[]
   ) => Promise<number | null>;
+  saveOutdoor?: (serial: string, air: OutdoorAir) => Promise<boolean>;
   log?: (line: string) => void;
   warn?: (line: string) => void;
 }
@@ -49,6 +52,7 @@ export async function runSync(options: SyncOptions = {}): Promise<void> {
     save = reading => saveReading(reading, "sync"),
     readHistory: readSlots = () => readHistory(),
     saveHistory: saveSlots = saveHistory,
+    saveOutdoor: saveAir = saveOutdoor,
     log = console.log,
     warn = console.warn,
   } = options;
@@ -64,7 +68,7 @@ export async function runSync(options: SyncOptions = {}): Promise<void> {
   const failures: string[] = [];
 
   try {
-    const { device, slots } = await readSlots();
+    const { device, slots, outdoor, outdoorError } = await readSlots();
     const count = await saveSlots(device.serial, slots);
     const what = `${slots.length} history ${slots.length === 1 ? "slot" : "slots"}`;
     if (count !== null) {
@@ -76,6 +80,13 @@ export async function runSync(options: SyncOptions = {}): Promise<void> {
       log(
         `Dyson has ${what} for this week${spanText(slots)}; DATABASE_URL isn't set, so they weren't saved.`
       );
+    }
+    // Outdoor air comes with the history. It's extra, so a gap is a note, not a failure.
+    if (outdoor) {
+      if (!ci) log(`Outdoor air for ${outdoor.measuredAt.toISOString()}: ${outdoorText(outdoor)}.`);
+      if (count !== null && (await saveAir(device.serial, outdoor))) stored.push("outdoor air");
+    } else if (outdoorError) {
+      warn(`note: no outdoor air from Dyson (${outdoorError}).`);
     }
   } catch (error) {
     failures.push(`The history wasn't copied: ${messageOf(error)}`);
@@ -102,8 +113,20 @@ export async function runSync(options: SyncOptions = {}): Promise<void> {
     failures.push(`The reading failed: ${messageOf(error)}`);
   }
 
-  if (ci && stored.length) log(`Stored ${stored.join(" and ")}.`);
+  if (ci && stored.length) log(`Stored ${listText(stored)}.`);
   if (failures.length) throw new Error(failures.join(" "));
+}
+
+/** "a", "a and b", "a, b and c". */
+function listText(items: string[]): string {
+  return items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+/** "AQI 49 (Good), PM2.5 7, PM10 13, NO2 21", for the local output only. */
+function outdoorText(air: OutdoorAir): string {
+  const value = (number: number | null) => (number === null ? "–" : String(number));
+  const band = air.aqiName ? ` (${air.aqiName})` : "";
+  return `AQI ${value(air.aqi)}${band}, PM2.5 ${value(air.pm25)}, PM10 ${value(air.pm10)}, NO2 ${value(air.no2)}`;
 }
 
 /** ", 2026-11-05T02:00:00.000Z to …", for the local output only. */

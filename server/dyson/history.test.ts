@@ -83,22 +83,47 @@ describe("resolutionMinutes", () => {
 
 describe("readHistory", () => {
   const historyPath = `/v1/messageprocessor/devices/${SERIAL}/environmentdata/daily`;
+  const outdoorPath = `/v1/environment/devices/${SERIAL}/data`;
+  const OUTDOOR = { DateTime: "2026-11-08T03:00:00Z", AqiValue: 49, AqiName: "Good", Pm25Value: 7 };
 
-  it("finds the HushJet and asks for its history over HTTPS only", async () => {
+  it("finds the HushJet and asks for its history and outdoor air over HTTPS only", async () => {
     const { fetch, calls } = fakeFetch(url => {
       if (url.pathname === PATH_PROVISION) return jsonResponse("5.0.21061");
       if (url.pathname === PATH_MANIFEST) return jsonResponse([MANIFEST_ENTRY]);
       if (url.pathname === historyPath) return jsonResponse(WEEK);
+      if (url.pathname === outdoorPath) return jsonResponse(OUTDOOR);
       return new Response(null, { status: 404 });
     });
     const result = await readHistory({ env: { DYSON_TOKEN: TOKEN }, fetch });
-    expect(calls.map(call => call.url.pathname)).toEqual([
-      PATH_PROVISION,
-      PATH_MANIFEST,
-      historyPath,
-    ]);
+    expect(calls.map(call => call.url.pathname)).toEqual([PATH_PROVISION, PATH_MANIFEST, historyPath, outdoorPath]);
+    expect(calls.at(-1)!.url.searchParams.get("language")).toBe("en");
     expect(result.device.serial).toBe(SERIAL);
     expect(result.slots).toHaveLength(12);
+    expect(result.outdoor).toMatchObject({ aqi: 49, pm25: 7 });
+  });
+
+  it("keeps the history when the outdoor air fails", async () => {
+    const { fetch } = fakeFetch(url => {
+      if (url.pathname === PATH_PROVISION) return jsonResponse("5.0.21061");
+      if (url.pathname === PATH_MANIFEST) return jsonResponse([MANIFEST_ENTRY]);
+      if (url.pathname === historyPath) return jsonResponse(WEEK);
+      return new Response(null, { status: 500 });
+    });
+    const result = await readHistory({ env: { DYSON_TOKEN: TOKEN }, fetch });
+    expect(result.slots).toHaveLength(12);
+    expect(result.outdoor).toBeNull();
+    expect(result.outdoorError).toBe("GET /v1/environment/devices/{serial}/data returned 500");
+  });
+
+  it("keeps the serial out of error messages, which CI prints publicly", async () => {
+    const { fetch } = fakeFetch(url => {
+      if (url.pathname === PATH_PROVISION) return jsonResponse("5.0.21061");
+      if (url.pathname === PATH_MANIFEST) return jsonResponse([MANIFEST_ENTRY]);
+      return new Response(null, { status: 500 });
+    });
+    const error = await readHistory({ env: { DYSON_TOKEN: TOKEN }, fetch }).catch(e => e as Error);
+    expect(error.message).toBe("GET /v1/messageprocessor/devices/{serial}/environmentdata/daily returned 500");
+    expect(error.message).not.toContain(SERIAL);
   });
 
   it("returns no slots when Dyson has no history", async () => {

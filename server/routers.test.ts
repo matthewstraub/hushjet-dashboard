@@ -18,6 +18,17 @@ vi.mock("./historyStore", () => ({
   storedSlots: vi.fn(async () => []),
   newestSlotStart: vi.fn(async () => new Date("2026-11-07T21:30:00Z")),
 }));
+vi.mock("./outdoorStore", () => ({
+  storedOutdoor: vi.fn(async () => []),
+  latestOutdoor: vi.fn(async () => ({
+    measuredAt: new Date("2026-11-08T03:00:00Z"),
+    aqi: 49,
+    aqiName: "Good",
+    pm25: 7,
+    pm10: 13,
+    no2: 21,
+  })),
+}));
 vi.mock("./readingsStore", () => ({
   storedHistory: vi.fn(async () => []),
   latestSyncAt: vi.fn(async () => new Date("2026-11-07T20:34:41Z")),
@@ -55,6 +66,7 @@ describe("readings", () => {
       dysonTokenSource: "DYSON_TOKEN",
       lastSyncAt: null,
       newestSlot: null,
+      outdoor: null,
     });
     expect(JSON.stringify(status)).not.toContain("secret-token");
   });
@@ -65,6 +77,7 @@ describe("readings", () => {
       databaseConfigured: true,
       lastSyncAt: new Date("2026-11-07T20:34:41Z"),
       newestSlot: new Date("2026-11-07T21:30:00Z"),
+      outdoor: { aqi: 49, aqiName: "Good", pm25: 7 },
     });
   });
 
@@ -120,6 +133,7 @@ describe("readings", () => {
       databaseConfigured: false,
       points: [],
       slots: [],
+      outdoor: [],
     });
     expect(historyRefresher.refresh).not.toHaveBeenCalled();
   });
@@ -178,6 +192,7 @@ describe("readings", () => {
       databaseConfigured: true,
       points: [],
       slots: [slot],
+      outdoor: [],
     });
   });
 });
