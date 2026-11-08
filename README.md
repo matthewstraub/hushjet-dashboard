@@ -7,9 +7,13 @@ uses the same stack as the PetLibro and Dexcom dashboards: a Vite, React and
 Recharts client, an Express and tRPC server, Drizzle on TiDB, password
 sign-in, and a free Render web service.
 
-The dashboard's Info tab explains the purifier, where each number comes from,
-and terms like PM2.5, µg/m³, AQI and NO₂. Its Settings tab picks light, dark,
-or the device's theme (the default), saved in each browser.
+Signed in with the admin password, you can change the purifier's settings on
+the Controls tab: power, Auto, fan speed, night mode, the sleep timer and
+continuous monitoring. The Dashboard tab only shows them, so looking through
+the readings can't change anything. The Schedule tab shows the schedule set
+in the MyDyson app. The Info tab explains the purifier, where each number
+comes from, and terms like PM2.5, µg/m³, AQI and NO₂. The Settings tab picks
+light, dark, or the device's theme (the default), saved in each browser.
 
 The look follows Dyson's own: Futura-style type in a quiet black, white and
 gray interface. Dyson's DysonFutura is proprietary, so it uses Jost, a free
@@ -107,6 +111,47 @@ Below the charts, one row per day for the last seven days, from the same
 Today's row is marked "so far", and a day with less than about 23 hours of
 data is marked partial.
 
+## Controls
+
+The admin role gets a Controls tab: power, Auto, night mode, continuous
+monitoring, fan speeds 1 to 10, and a sleep timer. The switches are only on
+that tab. The Dashboard shows the same settings as text, for everyone, so
+looking through the readings can't change anything.
+
+Each change is one `STATE-SET` command on the purifier's command topic in
+Dyson's cloud, in the format hass-dyson uses for cloud-connected Dyson
+models. The server waits up to eight seconds for the purifier to report the
+new values back, then takes a fresh reading, so the tab shows what the
+purifier reports rather than what was asked for. A change takes two to four
+seconds.
+
+- **Who can change things:** only the admin role. Viewers don't get the tab,
+  and the server refuses their changes. In production that means signing in
+  with `ADMIN_PASSWORD`, so the tab stays hidden until it's set. Locally, with
+  no `VIEWER_PASSWORD`, the site is open and the controls work without
+  signing in.
+- **A speed** turns Auto off, as it does in the MyDyson app.
+- **Night mode** on the HJ10 turns Auto off and holds the fan at speed 4, even
+  when Auto is sent with it. Turning night mode off leaves Auto off; switch
+  Auto back on to let the purifier choose again.
+- **The sleep timer** turns the purifier off after 15 minutes to 8 hours. A
+  timer set in the MyDyson app shows as the time left.
+- **Continuous monitoring** keeps the sensor measuring while the fan is off.
+
+## Schedule
+
+The Schedule tab lists the schedule set in the MyDyson app: each period's
+start and end, its days, and what it sets (Auto or a speed, night mode,
+power), and whether the schedule is on. It's read-only; change the schedule
+in the app. The server reads it from Dyson's unified scheduler
+(`/v1/unifiedscheduler/{serial}/events`) and keeps it for five minutes. Dyson
+stores each period as two events in one group, its start and its end.
+
+On the HJ10, a period that asks for Auto with night mode on runs at speed 4,
+since night mode turns Auto off (see [Controls](#controls)). The fan history
+shows that: a steady speed 4 through the scheduled night, then Auto again
+after the morning change.
+
 ## Run it locally
 
 Log in to Dyson once with the CLI. It asks for your password and the code
@@ -161,7 +206,7 @@ npx pnpm@10.4.1 sync
 | --- | --- | --- |
 | `DATABASE_URL` | For history | TiDB or MySQL. TiDB needs `?ssl={"rejectUnauthorized":true}` |
 | `VIEWER_PASSWORD` | In production | The site password |
-| `ADMIN_PASSWORD` | Optional | A second password for settings changes, once there are some |
+| `ADMIN_PASSWORD` | For controls | A second password that unlocks the Controls tab. Without it, nobody can change settings from the dashboard |
 | `SESSION_SECRET` | In production | Signs session cookies, e.g. `openssl rand -hex 32` |
 | `DYSON_TOKEN` | In production | The token from `hushjet login`. Locally it's read from the CLI's saved login instead |
 | `DYSON_SERIAL` | Optional | Which device, when the account has more than one HushJet |
@@ -229,7 +274,8 @@ uses:
 - Start: `pnpm run start`
 - Environment: `NODE_ENV=production`, `DATABASE_URL` (the same string as the
   GitHub secret), `VIEWER_PASSWORD`, `DYSON_TOKEN`, and a `SESSION_SECRET`
-  Render generated. `ADMIN_PASSWORD` is unset, since nothing needs it yet.
+  Render generated. `ADMIN_PASSWORD` is unset, so the Controls tab stays
+  hidden until it's added. Use a different password from `VIEWER_PASSWORD`.
 
 Every push to `main` redeploys, including changes to docs.
 

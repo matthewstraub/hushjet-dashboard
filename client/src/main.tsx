@@ -43,6 +43,10 @@ const UNBATCHED = new Set([
   "readings.refresh",
   "readings.history",
   "readings.daily",
+  // A command and the reading after it take several seconds; the schedule
+  // comes straight from Dyson.
+  "readings.control",
+  "readings.schedule",
 ]);
 
 const trpcClient = trpc.createClient({

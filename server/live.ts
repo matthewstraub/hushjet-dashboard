@@ -37,6 +37,18 @@ export class LiveReader {
     return this.pending;
   }
 
+  /**
+   * A reading started after this call, for right after a change to the
+   * purifier: a read already under way could show the old state.
+   */
+  async readAfterChange(): Promise<LiveResult> {
+    await this.pending?.catch(() => undefined);
+    this.pending ??= this.fresh().finally(() => {
+      this.pending = null;
+    });
+    return this.pending;
+  }
+
   private async fresh(): Promise<LiveResult> {
     const live = await this.read();
     let stored = false;

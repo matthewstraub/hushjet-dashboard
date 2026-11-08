@@ -26,6 +26,7 @@ export const PATH_IOT_CREDENTIALS = "/v2/authorize/iot-credentials";
  */
 export const PATH_HISTORY = "/v1/messageprocessor/devices/{serial}/environmentdata/daily";
 export const PATH_OUTDOOR = "/v1/environment/devices/{serial}/data";
+export const PATH_SCHEDULE = "/v1/unifiedscheduler/{serial}/events";
 
 function withSerial(template: string, serial: string): string {
   return template.replace("{serial}", encodeURIComponent(serial));
@@ -121,6 +122,18 @@ export class DysonAppApi {
     const data = await this.send("GET", path, { label: PATH_OUTDOOR });
     if (data === null) return null;
     if (!isObject(data)) throw new DysonApiError("The outdoor air response wasn't an object");
+    return data;
+  }
+
+  /**
+   * The purifier's schedule as the MyDyson app set it: whether it's on, and
+   * timed events, each with the settings it applies. See schedule.ts.
+   */
+  async schedule(serial: string, productType: string): Promise<JsonObject | null> {
+    const path = `${withSerial(PATH_SCHEDULE, serial)}?productType=${encodeURIComponent(productType)}`;
+    const data = await this.send("GET", path, { label: PATH_SCHEDULE });
+    if (data === null) return null;
+    if (!isObject(data)) throw new DysonApiError("The schedule response wasn't an object");
     return data;
   }
 

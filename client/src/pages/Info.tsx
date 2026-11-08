@@ -11,10 +11,13 @@ const PURIFIER: Entry[] = [
     term: "Fan",
     text: "Off, Auto, or a speed from 1 (quietest) to 10. In Auto, the purifier sets the speed from what its sensor measures.",
   },
-  { term: "Night mode", text: "Runs the purifier more quietly, for sleep." },
+  {
+    term: "Night mode",
+    text: "Runs the purifier more quietly, for sleep. On the HJ10 it also turns Auto off and holds the fan at speed 4, even when a schedule asks for Auto. Turning night mode off leaves Auto off.",
+  },
   {
     term: "Continuous monitoring",
-    text: "Keeps the sensor measuring while the fan is off. With it off, PM is only measured while the fan runs, so turn it on in the MyDyson app.",
+    text: "Keeps the sensor measuring while the fan is off. With it off, PM is only measured while the fan runs, so leave it on.",
   },
   {
     term: "Filter life",
@@ -42,6 +45,14 @@ const SOURCES: Entry[] = [
   {
     term: "Status",
     text: "The fault report, Wi-Fi signal and filter life come from the purifier's own messages, and the firmware status from Dyson's device list.",
+  },
+  {
+    term: "Schedule",
+    text: "The Schedule tab reads the schedule set in the MyDyson app from Dyson's cloud, at most every five minutes. It can only be changed in the app.",
+  },
+  {
+    term: "Controls",
+    text: "Signed in with the admin password, the Controls tab sends each change to the purifier through Dyson's cloud, the way the MyDyson app does, then takes a new reading so it shows what the purifier reports. The Dashboard only shows the settings, so browsing it can't change anything.",
   },
   {
     term: "Storage",
