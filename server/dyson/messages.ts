@@ -137,8 +137,9 @@ export function faultReport(payload: Fields): FaultReport | null {
       values[code] = value;
       if (value.trim().toUpperCase() !== "OK") problems.push({ group, code, value });
     }
-    checks[group] = values;
+    if (Object.keys(values).length) checks[group] = values;
   }
+  // With no checks at all, there's nothing to say "No faults" about.
   return Object.keys(checks).length ? { checks, problems } : null;
 }
 

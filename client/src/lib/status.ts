@@ -86,7 +86,26 @@ export function wifiItem(dbm: number | null | undefined): StatusItem {
   return { label, level: "critical", value: "Very weak", detail };
 }
 
-/** Reaching the purifier through Dyson's cloud, as the live reading went. */
+/**
+ * The error from the newest live read, if it failed. A failed background
+ * refetch keeps the last good reading on screen but still counts, and a
+ * later good reading clears an older failed Refresh.
+ */
+export function latestFailure<E>(reads: {
+  /** When the last good reading arrived (0 if none). */
+  dataAt: number;
+  queryError: E | null;
+  queryErrorAt: number;
+  refreshError: E | null;
+  /** When Refresh was last pressed (0 if never). */
+  refreshAt: number;
+}): E | null {
+  if (reads.refreshError && reads.refreshAt > reads.dataAt) return reads.refreshError;
+  if (reads.queryError && reads.queryErrorAt > reads.dataAt) return reads.queryError;
+  return null;
+}
+
+/** Reaching the purifier through Dyson's cloud, as the newest live read went. */
 export function connectionItem(live: {
   loading: boolean;
   takenAt?: string;
@@ -94,11 +113,11 @@ export function connectionItem(live: {
 }): StatusItem {
   const label = "Dyson cloud";
   if (live.error) {
+    const shown = live.takenAt ? ` The reading shown is from ${clockTime(live.takenAt)}.` : "";
+    const detail = live.error.message + shown;
     // PRECONDITION_FAILED is the token or the setup; BAD_GATEWAY is Dyson or the purifier.
-    if (live.error.code === "BAD_GATEWAY") {
-      return { label, level: "warning", value: "No answer", detail: live.error.message };
-    }
-    return { label, level: "critical", value: "Needs attention", detail: live.error.message };
+    if (live.error.code === "BAD_GATEWAY") return { label, level: "warning", value: "No answer", detail };
+    return { label, level: "critical", value: "Needs attention", detail };
   }
   if (live.takenAt) {
     return { label, level: "good", value: "Connected", detail: `Read the purifier at ${clockTime(live.takenAt)}.` };

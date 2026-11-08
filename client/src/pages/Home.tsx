@@ -11,6 +11,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clockTime, fanText, onOffText, percentText, pmText } from "@/lib/format";
+import { latestFailure } from "@/lib/status";
 import { trpc } from "@/lib/trpc";
 import {
   Activity,
@@ -45,7 +46,17 @@ export default function Home() {
 
   const reading = live.data?.reading;
   const device = live.data?.device;
-  const error = refresh.error ?? (reading ? null : live.error);
+  // The status card follows the newest read, even when it failed in the
+  // background and the last good reading stays on screen. The banner is for
+  // a failed Refresh, or when there's no reading to show at all.
+  const latestError = latestFailure({
+    dataAt: live.dataUpdatedAt,
+    queryError: live.error,
+    queryErrorAt: live.errorUpdatedAt,
+    refreshError: refresh.error,
+    refreshAt: refresh.submittedAt,
+  });
+  const error = reading ? (latestError === refresh.error ? refresh.error : null) : latestError;
   const busy = live.isFetching || refresh.isPending;
   const loading = live.isLoading;
 
@@ -163,7 +174,7 @@ export default function Home() {
           loading={loading}
           reading={reading}
           device={device}
-          error={error && { message: error.message, code: error.data?.code }}
+          error={latestError && { message: latestError.message, code: latestError.data?.code }}
         />
 
         <HistoryCard />

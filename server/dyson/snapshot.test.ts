@@ -77,6 +77,14 @@ describe("takeSnapshot", () => {
     expect(asked.filter(msg => msg === REQUEST_FAULTS)).toHaveLength(2);
   });
 
+  it("keeps a reading whose fault report is still pending when time runs out", async () => {
+    // 100 ms is less than the half second before faults are asked for again.
+    const { result } = run({ replies: [state, sensor] }, 100, 2000);
+    const reading = await result;
+    expect(reading.pm25).toBe(3);
+    expect(reading.faults).toBeNull();
+  });
+
   it("gets the fault report when the purifier answers the second request", async () => {
     const replyTo = (request: string, attempt: number) =>
       request === REQUEST_FAULTS && attempt === 2 ? [FAULTS_REPORT] : [];

@@ -112,6 +112,11 @@ export function takeSnapshot(options: SnapshotOptions): Promise<Reading> {
     };
 
     const timer = setTimeout(() => {
+      // A fault report still on its way doesn't fail a reading that has the rest.
+      if (gotState && gotSensor) {
+        finish(null);
+        return;
+      }
       const missing = [!gotState && "state", !gotSensor && "sensor data"].filter(Boolean);
       finish(
         new SnapshotError(

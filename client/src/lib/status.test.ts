@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   connectionItem,
+  latestFailure,
   faultsItem,
   firmwareItem,
   historyItem,
@@ -82,12 +83,39 @@ describe("connectionItem", () => {
     ).toMatchObject({ level: "warning", value: "No answer" });
   });
 
+  it("says which reading is on screen when the newest read failed", () => {
+    const item = connectionItem({
+      loading: false,
+      takenAt: "2026-11-07T21:58:00Z",
+      error: { message: "The purifier didn't answer.", code: "BAD_GATEWAY" },
+    });
+    expect(item).toMatchObject({ level: "warning", value: "No answer" });
+    expect(item.detail).toMatch(/^The purifier didn't answer\. The reading shown is from /);
+  });
+
   it("is good once a reading arrives, and waits while loading", () => {
     expect(connectionItem({ loading: false, takenAt: "2026-11-07T21:58:00Z" })).toMatchObject({
       level: "good",
       value: "Connected",
     });
     expect(connectionItem({ loading: true })).toMatchObject({ level: "unknown", value: "Checking…" });
+  });
+});
+
+describe("latestFailure", () => {
+  const reads = { dataAt: 0, queryError: null, queryErrorAt: 0, refreshError: null, refreshAt: 0 };
+
+  it("counts a failed background refetch even with a reading on screen", () => {
+    expect(latestFailure({ ...reads, dataAt: 100, queryError: "timeout", queryErrorAt: 200 })).toBe("timeout");
+  });
+
+  it("forgets a failed Refresh once a later reading arrives", () => {
+    expect(latestFailure({ ...reads, refreshError: "token", refreshAt: 100, dataAt: 200 })).toBeNull();
+    expect(latestFailure({ ...reads, refreshError: "token", refreshAt: 300, dataAt: 200 })).toBe("token");
+  });
+
+  it("is null when nothing failed", () => {
+    expect(latestFailure({ ...reads, dataAt: 100 })).toBeNull();
   });
 });
 

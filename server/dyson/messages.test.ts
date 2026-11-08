@@ -127,9 +127,10 @@ describe("Wi-Fi signal and faults", () => {
     ]);
   });
 
-  it("ignores a fault message without checks", () => {
+  it("ignores a fault message without checks, even with empty groups", () => {
     const snapshot = new Snapshot();
     expect(snapshot.apply({ msg: CURRENT_FAULTS })).toBeNull();
+    expect(snapshot.apply({ msg: CURRENT_FAULTS, "product-errors": {}, "product-warnings": {} })).toBeNull();
     expect(snapshot.faults).toBeNull();
   });
 });
