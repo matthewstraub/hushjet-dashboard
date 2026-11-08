@@ -66,7 +66,8 @@ type Row = { t: number };
 
 export function HistoryCard() {
   const [range, setRange] = useState<Range>("24h");
-  const history = trpc.readings.history.useQuery({ range });
+  // An open page reloads as often as the server copies Dyson's history.
+  const history = trpc.readings.history.useQuery({ range }, { refetchInterval: 10 * 60_000 });
   const utils = trpc.useUtils();
   // Loading the history copies Dyson's newest slots first, so the status
   // card's "saved history" may have moved on.

@@ -6,6 +6,11 @@ import { TriangleAlert } from "lucide-react";
 import { useMemo } from "react";
 
 const DAYS = 7;
+/**
+ * How often an open page reloads the summaries: as often as the server copies
+ * Dyson's history, and soon enough after midnight to start the new day's row.
+ */
+const RELOAD_MS = 10 * 60_000;
 /** A full day has 96 slots (92 or 100 when the clocks change); fewer means data is missing. */
 const FULL_DAY_SLOTS = 92;
 
@@ -15,7 +20,7 @@ const TD = "py-2 pr-4 whitespace-nowrap";
 /** One row per day: what the air was like, and what the fan did about it. */
 export function DailyCard() {
   const timeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
-  const daily = trpc.readings.daily.useQuery({ timeZone, days: DAYS });
+  const daily = trpc.readings.daily.useQuery({ timeZone, days: DAYS }, { refetchInterval: RELOAD_MS });
 
   let body;
   if (daily.isLoading) {
