@@ -192,7 +192,8 @@ function Tile({
         {loading ? (
           <Skeleton className="h-9 w-16" />
         ) : (
-          <CardTitle className="text-3xl tabular-nums">{children}</CardTitle>
+          // Large and light, like Dyson's headline type.
+          <CardTitle className="text-4xl font-light tabular-nums">{children}</CardTitle>
         )}
       </CardHeader>
       <CardContent className="space-y-2 text-xs text-muted-foreground">

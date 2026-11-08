@@ -43,56 +43,105 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Jost", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Fira Code", ui-monospace, monospace;
 }
 
-/* Dark developer console theme (Tokyo Night inspired) */
+/*
+ * Light and dark, in the spirit of Dyson's own look: a quiet black, white
+ * and gray interface with Futura-style type (Jost; Dyson's DysonFutura is
+ * proprietary), so the data carries the color. The .dark class follows the
+ * system unless Settings picks one; see contexts/ThemeContext.tsx.
+ */
 :root {
+  color-scheme: light;
   --radius: 0.5rem;
-  --background: oklch(0.16 0.014 264);
-  --foreground: oklch(0.88 0.01 264);
-  --card: oklch(0.19 0.016 264);
-  --card-foreground: oklch(0.88 0.01 264);
-  --popover: oklch(0.19 0.016 264);
-  --popover-foreground: oklch(0.88 0.01 264);
-  --primary: oklch(0.72 0.15 180);
-  --primary-foreground: oklch(0.16 0.014 264);
-  --secondary: oklch(0.22 0.018 264);
-  --secondary-foreground: oklch(0.78 0.01 264);
-  --muted: oklch(0.22 0.018 264);
-  --muted-foreground: oklch(0.58 0.02 264);
-  --accent: oklch(0.25 0.02 264);
-  --accent-foreground: oklch(0.88 0.01 264);
-  --destructive: oklch(0.65 0.2 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.28 0.02 264);
-  --input: oklch(0.25 0.018 264);
-  --ring: oklch(0.72 0.15 180);
-  --chart-1: oklch(0.72 0.15 180);
-  --chart-2: oklch(0.68 0.16 145);
-  --chart-3: oklch(0.75 0.12 80);
-  --chart-4: oklch(0.65 0.2 25);
-  --chart-5: oklch(0.62 0.2 290);
+  --background: #f5f5f5;
+  --foreground: #333333;
+  --card: #ffffff;
+  --card-foreground: #333333;
+  --popover: #ffffff;
+  --popover-foreground: #333333;
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --secondary: #ededed;
+  --secondary-foreground: #333333;
+  --muted: #ededed;
+  /* 5.3:1 on a card, 4.9:1 on the page. */
+  --muted-foreground: #6b6b6b;
+  --accent: #ebebeb;
+  --accent-foreground: #111111;
+  --destructive: #d03b3b;
+  --destructive-foreground: #ffffff;
+  --border: #e3e3e3;
+  --input: #d6d6d6;
+  --ring: #111111;
   /* History chart series, always in this order. Checked with the dataviz
-     validator against --card: CVD ΔE 19.8, normal-vision ΔE 27.2, contrast
-     ≥ 3:1. chart-2 fails beside chart-1, and chart-3 and chart-4 read as
-     warnings. */
-  --series-1: oklch(0.66 0.13 180);
-  --series-2: oklch(0.62 0.2 290);
+     validator against the light card (#ffffff): CVD ΔE 18.8, normal-vision
+     ΔE 25.8, chroma and lightness in range, contrast ≥ 3:1. */
+  --series-1: #00897b;
+  --series-2: #6741ca;
+  --chart-1: var(--series-1);
+  --chart-2: var(--series-2);
+  --chart-3: #6b6b6b;
+  --chart-4: #6b6b6b;
+  --chart-5: #6b6b6b;
   /* Status, only ever on an icon beside a text label: the dataviz reference
-     steps, each 3.5:1 or better on --card and distinct from the series. */
+     steps, which are the same in both modes. */
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-critical: #d03b3b;
-  --sidebar: oklch(0.14 0.012 264);
-  --sidebar-foreground: oklch(0.88 0.01 264);
-  --sidebar-primary: oklch(0.72 0.15 180);
-  --sidebar-primary-foreground: oklch(0.16 0.014 264);
-  --sidebar-accent: oklch(0.22 0.018 264);
-  --sidebar-accent-foreground: oklch(0.88 0.01 264);
-  --sidebar-border: oklch(0.28 0.02 264);
-  --sidebar-ring: oklch(0.72 0.15 180);
+  --scrollbar: #c9c9c9;
+  --scrollbar-hover: #a8a8a8;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #333333;
+  --sidebar-primary: #111111;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ebebeb;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #e3e3e3;
+  --sidebar-ring: #111111;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0f0f0f;
+  --foreground: #f2f2f2;
+  --card: #1a1a1a;
+  --card-foreground: #f2f2f2;
+  --popover: #1a1a1a;
+  --popover-foreground: #f2f2f2;
+  --primary: #f2f2f2;
+  --primary-foreground: #111111;
+  --secondary: #262626;
+  --secondary-foreground: #f2f2f2;
+  --muted: #262626;
+  /* 6.9:1 on a card. */
+  --muted-foreground: #a3a3a3;
+  --accent: #2b2b2b;
+  --accent-foreground: #f2f2f2;
+  --destructive: #d03b3b;
+  --destructive-foreground: #ffffff;
+  --border: #2e2e2e;
+  --input: #3a3a3a;
+  --ring: #f2f2f2;
+  /* The same hues stepped for the dark card (#1a1a1a): CVD ΔE 19.8,
+     normal-vision ΔE 27.2, all checks pass. */
+  --series-1: #00ab95;
+  --series-2: #8968f4;
+  --chart-3: #a3a3a3;
+  --chart-4: #a3a3a3;
+  --chart-5: #a3a3a3;
+  --scrollbar: #3a3a3a;
+  --scrollbar-hover: #4d4d4d;
+  --sidebar: #1a1a1a;
+  --sidebar-foreground: #f2f2f2;
+  --sidebar-primary: #f2f2f2;
+  --sidebar-primary-foreground: #111111;
+  --sidebar-accent: #2b2b2b;
+  --sidebar-accent-foreground: #f2f2f2;
+  --sidebar-border: #2e2e2e;
+  --sidebar-ring: #f2f2f2;
 }
 
 @layer base {
@@ -145,7 +194,7 @@
   }
 }
 
-/* Custom scrollbar for dark theme */
+/* Scrollbars that follow the theme */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -154,9 +203,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.35 0.02 264);
+  background: var(--scrollbar);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.45 0.02 264);
+  background: var(--scrollbar-hover);
 }
