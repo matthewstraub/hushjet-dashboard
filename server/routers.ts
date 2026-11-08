@@ -14,6 +14,7 @@ import { SnapshotError } from "./dyson/snapshot";
 import { historyRefresher } from "./historyRefresh";
 import { newestSlotStart, storedSlots } from "./historyStore";
 import { liveReader } from "./live";
+import { latestOutdoor, storedOutdoor } from "./outdoorStore";
 import { latestSyncAt, storedHistory } from "./readingsStore";
 
 /** How long page loads reuse a live reading. */
@@ -99,10 +100,10 @@ export const appRouter = router({
      */
     status: viewerProcedure.query(async () => {
       const databaseConfigured = (await getDb()) !== null;
-      const [lastSyncAt, newestSlot] = databaseConfigured
-        ? await Promise.all([latestSyncAt(), newestSlotStart()])
-        : [null, null];
-      return { databaseConfigured, dysonTokenSource: dysonTokenSource(), lastSyncAt, newestSlot };
+      const [lastSyncAt, newestSlot, outdoor] = databaseConfigured
+        ? await Promise.all([latestSyncAt(), newestSlotStart(), latestOutdoor()])
+        : [null, null, null];
+      return { databaseConfigured, dysonTokenSource: dysonTokenSource(), lastSyncAt, newestSlot, outdoor };
     }),
     /** The purifier right now, read through Dyson's cloud and reused for a minute. */
     live: viewerProcedure.query(() => liveReading(LIVE_MAX_AGE_MS)),
@@ -116,11 +117,15 @@ export const appRouter = router({
     history: viewerProcedure
       .input(z.object({ range: z.enum(["24h", "7d", "30d"]) }))
       .query(async ({ input }) => {
-        if (!(await getDb())) return { databaseConfigured: false, points: [], slots: [] };
+        if (!(await getDb())) return { databaseConfigured: false, points: [], slots: [], outdoor: [] };
         await historyRefresher.refresh(HISTORY_COPY_GAP_MS, HISTORY_COPY_WAIT_MS);
         const since = new Date(Date.now() - HISTORY_RANGES[input.range]);
-        const [points, slots] = await Promise.all([storedHistory(since), storedSlots(since)]);
-        return { databaseConfigured: true, points: points ?? [], slots: slots ?? [] };
+        const [points, slots, outdoor] = await Promise.all([
+          storedHistory(since),
+          storedSlots(since),
+          storedOutdoor(since),
+        ]);
+        return { databaseConfigured: true, points: points ?? [], slots: slots ?? [], outdoor: outdoor ?? [] };
       }),
     /**
      * One summary per day in the viewer's time zone, from Dyson's 15-minute

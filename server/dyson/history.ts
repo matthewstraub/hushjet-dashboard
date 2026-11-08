@@ -14,6 +14,7 @@
 import { DysonApiError, DysonAppApi, type JsonObject } from "./appApi";
 import { loadDysonConfig } from "./config";
 import { chooseDevice, deviceFromManifest, type Device } from "./devices";
+import { parseOutdoor, type OutdoorAir } from "./outdoor";
 
 export interface HistorySlot {
   /** When the slot began. */
@@ -92,9 +93,17 @@ export function parseHistory(data: JsonObject): HistorySlot[] {
 export interface HistoryResult {
   device: Device;
   slots: HistorySlot[];
+  /** Dyson's outdoor figures for the area, fetched in the same session. */
+  outdoor?: OutdoorAir | null;
+  /** Why there are no outdoor figures, when fetching them failed. */
+  outdoorError?: string;
 }
 
-/** This week's history from Dyson's cloud. Only HTTPS calls, no MQTT. */
+/**
+ * This week's history from Dyson's cloud, and the latest outdoor air
+ * figures with it. Only HTTPS calls, no MQTT. The outdoor figures are extra,
+ * so failing to get them doesn't fail the history.
+ */
 export async function readHistory(
   options: { env?: NodeJS.ProcessEnv; fetch?: typeof fetch } = {}
 ): Promise<HistoryResult> {
@@ -110,5 +119,11 @@ export async function readHistory(
     config.serial
   );
   const data = await api.environmentHistory(device.serial);
-  return { device, slots: data ? parseHistory(data) : [] };
+  const slots = data ? parseHistory(data) : [];
+  try {
+    const air = await api.outdoorAir(device.serial);
+    return { device, slots, outdoor: air ? parseOutdoor(air) : null };
+  } catch (error) {
+    return { device, slots, outdoor: null, outdoorError: error instanceof Error ? error.message : String(error) };
+  }
 }

@@ -79,6 +79,28 @@ describe("HistoryRefresher", () => {
     expect(done.sort()).toEqual(["first", "second"]);
   });
 
+  it("saves Dyson's outdoor air when it comes with the history", async () => {
+    let now = 1_000_000;
+    const air = {
+      measuredAt: new Date("2026-11-08T03:00:00Z"),
+      aqi: 49,
+      aqiName: "Good",
+      pm25: 7,
+      pm10: 13,
+      no2: 21,
+    };
+    const read = vi.fn(async (): Promise<HistoryResult> => ({
+      device: deviceFromManifest(MANIFEST_ENTRY),
+      slots: SLOTS,
+      outdoor: air,
+    }));
+    const saveAir = vi.fn(async () => true);
+    const refresher = new HistoryRefresher(read, async () => 1, () => now, saveAir);
+    await refresher.refresh(GAP, 5_000);
+    expect(saveAir).toHaveBeenCalledWith(SERIAL, air);
+    now += GAP;
+  });
+
   it("doesn't throw, and waits out the gap after a failure too", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const { read, save, refresher, advance } = setup();

@@ -10,7 +10,9 @@ import {
   type HistoryResult,
   type HistorySlot,
 } from "./dyson/history";
+import type { OutdoorAir } from "./dyson/outdoor";
 import { saveHistory } from "./historyStore";
+import { saveOutdoor } from "./outdoorStore";
 
 export class HistoryRefresher {
   private lastAttempt: number | null = null;
@@ -22,7 +24,8 @@ export class HistoryRefresher {
       serial: string,
       slots: HistorySlot[]
     ) => Promise<number | null> = saveHistory,
-    private readonly clock: () => number = Date.now
+    private readonly clock: () => number = Date.now,
+    private readonly saveAir: (serial: string, air: OutdoorAir) => Promise<boolean> = saveOutdoor
   ) {}
 
   /**
@@ -54,8 +57,11 @@ export class HistoryRefresher {
 
   private async copy(): Promise<void> {
     try {
-      const { device, slots } = await this.read();
+      const { device, slots, outdoor, outdoorError } = await this.read();
       await this.save(device.serial, slots);
+      // Dyson's outdoor figures come with the history; they're extra, so only a note if missing.
+      if (outdoor) await this.saveAir(device.serial, outdoor);
+      else if (outdoorError) console.warn("[History] No outdoor air from Dyson:", outdoorError);
     } catch (error) {
       console.warn(
         "[History] Couldn't copy Dyson's history:",

@@ -25,8 +25,8 @@ export function toHistoryRows(
   }));
 }
 
-/** For a slot that's already stored: the new value, or the stored one if Dyson sent none. */
-function newOrKept(column: MySqlColumn) {
+/** For a row that's already stored: the new value, or the stored one if Dyson sent none. */
+export function newOrKept(column: MySqlColumn) {
   const name = sql.identifier(column.name);
   return sql`coalesce(values(${name}), ${name})`;
 }

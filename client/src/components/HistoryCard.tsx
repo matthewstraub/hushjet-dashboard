@@ -25,7 +25,7 @@ import {
   timeAxis,
   type Range,
 } from "@/lib/format";
-import { slotRows, type SlotRow } from "@/lib/history";
+import { slotRows, withOutdoor, type SlotRowWithOutdoor } from "@/lib/history";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
@@ -42,6 +42,13 @@ const RANGES: { value: Range; label: string; name: string }[] = [
 const PM_CONFIG = {
   pm25: { label: "PM2.5", color: "var(--series-1)" },
   pm10: { label: "PM10", color: "var(--series-2)" },
+} satisfies ChartConfig;
+
+// Indoors is the point and outdoors the context, so outdoors gets the
+// de-emphasis gray rather than another series color.
+const OUTDOOR_CONFIG = {
+  pm25: { label: "Indoors", color: "var(--series-1)" },
+  outdoor: { label: "Outdoors", color: "var(--muted-foreground)" },
 } satisfies ChartConfig;
 
 const FAN_CONFIG = {
@@ -87,7 +94,7 @@ export function HistoryCard() {
     [history.data]
   );
   const slots = useMemo(
-    () => slotRows(history.data?.slots ?? []),
+    () => withOutdoor(slotRows(history.data?.slots ?? []), history.data?.outdoor ?? []),
     [history.data]
   );
 
@@ -166,7 +173,7 @@ export function HistoryCharts({
   slots,
   readings,
 }: {
-  slots: SlotRow[];
+  slots: SlotRowWithOutdoor[];
   readings: ReadingRow[];
 }) {
   // Dyson's averages cover every 15 minutes; readings are only as often as
@@ -180,6 +187,7 @@ export function HistoryCharts({
     readings.at(-1)?.t,
   ].filter((t): t is number => t !== undefined);
   const span: [number, number] = [Math.min(...ends), Math.max(...ends)];
+  const hasOutdoor = slots.some(row => row.outdoor !== null);
   return (
     <div className="space-y-6">
       <div className="grid gap-8 lg:grid-cols-2">
@@ -195,6 +203,17 @@ export function HistoryCharts({
           span={span}
           slotted={pmFromSlots}
         />
+        {hasOutdoor && (
+          <TimeChart
+            className="lg:col-span-2"
+            title="PM2.5 indoors and outdoors, µg/m³"
+            config={OUTDOOR_CONFIG}
+            data={slots}
+            span={span}
+            steps={["outdoor"]}
+            slotted
+          />
+        )}
         {pmFromSlots ? (
           <TimeChart
             title="Fan speed, 15-minute average"
@@ -245,6 +264,7 @@ function TimeChart({
   yDomain,
   yTicks,
   slotted = false,
+  steps,
   className,
 }: {
   title: string;
@@ -256,6 +276,8 @@ function TimeChart({
   yTicks?: number[];
   /** Each row is a 15-minute slot, so the tooltip shows the span it covers. */
   slotted?: boolean;
+  /** Series that change hourly, drawn as steps. */
+  steps?: string[];
   className?: string;
 }) {
   const keys = Object.keys(config);
@@ -331,7 +353,7 @@ function TimeChart({
             <Line
               key={key}
               dataKey={key}
-              type="linear"
+              type={steps?.includes(key) ? "stepAfter" : "linear"}
               stroke={`var(--color-${key})`}
               strokeWidth={2}
               strokeLinecap="round"
@@ -351,7 +373,7 @@ const TH = "py-1 pr-4 font-normal";
 const TD = "py-1 pr-4";
 
 /** Dyson's slots as a table, for screen readers and exact values. */
-function SlotsTable({ rows }: { rows: SlotRow[] }) {
+function SlotsTable({ rows }: { rows: SlotRowWithOutdoor[] }) {
   const latest = rows
     .filter(row => !row.gap)
     .slice(-50)
@@ -368,6 +390,7 @@ function SlotsTable({ rows }: { rows: SlotRow[] }) {
               <th className={TH}>Time</th>
               <th className={TH}>PM2.5</th>
               <th className={TH}>PM10</th>
+              <th className={TH}>Outdoors</th>
               <th className={TH}>Fan speed</th>
               <th className={cn(TH, "pr-0")}>Fan ran</th>
             </tr>
@@ -378,6 +401,7 @@ function SlotsTable({ rows }: { rows: SlotRow[] }) {
                 <td className={TD}>{slotTime(row.t)}</td>
                 <td className={TD}>{numberText(row.pm25)}</td>
                 <td className={TD}>{numberText(row.pm10)}</td>
+                <td className={TD}>{numberText(row.outdoor)}</td>
                 <td className={TD}>{numberText(row.fan)}</td>
                 <td className={cn(TD, "pr-0")}>
                   {minutesText(row.ranMinutes)}

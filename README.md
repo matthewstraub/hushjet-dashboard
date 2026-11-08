@@ -18,7 +18,7 @@ which Dyson can change without notice.
 | `server/` | Express and tRPC. `server/_core/` holds sign-in, sessions and security headers, from the Dexcom app |
 | `server/dyson/` | The Dyson client: App API calls, the AWS IoT connection and the message parser, ported from the CLI |
 | `shared/` | Code and types the client and server share |
-| `drizzle/` | The `readings` and `history_slots` tables and their migrations |
+| `drizzle/` | The `readings`, `history_slots` and `outdoor_readings` tables and their migrations |
 | `cli/` | The Python `hushjet` CLI: Dyson login, the device list, and live MQTT on the home network or through Dyson's cloud. See [cli/README.md](cli/README.md) |
 
 ## How a reading works
@@ -65,6 +65,21 @@ Slots that aren't copied before their week ends are likely lost.
 
 The charts use those slots for PM and fan speed. Filter life isn't in Dyson's
 history, so it comes from the stored readings.
+
+## Outdoor air
+
+Dyson also reports the outdoor air for the purifier's area, as the MyDyson app
+shows it: an AQI with its band ("Good"), PM2.5, PM10 and NO2 for the current
+hour (`/v1/environment/devices/{serial}/data`). Dyson doesn't say which unit
+NO2 is in. Each history copy fetches it too and stores the hour in
+`outdoor_readings`; the place name in the response is never read or stored.
+
+An "Indoor vs. outdoor air" card puts the purifier's latest reading and
+Dyson's latest outdoor hour side by side: PM2.5 and PM10 for both, and the AQI
+and NO2 outdoors (the purifier doesn't measure those). The history charts
+outdoor PM2.5 as a gray step line behind indoor PM2.5. Dyson only gives the
+current hour, so outdoor history builds up from the first copy, and an hour
+without a sync or a page load leaves a gap.
 
 ## Daily summary
 
@@ -123,7 +138,7 @@ npx pnpm@10.4.1 sync
 | Script | What it does |
 | --- | --- |
 | `dev` | The server with Vite middleware and hot reload |
-| `sync` | Copies the week's 15-minute history from Dyson's cloud and takes one reading, storing both. `sync --ci` is the scheduled job's version |
+| `sync` | Copies the week's 15-minute history and the hour's outdoor air from Dyson's cloud and takes one reading, storing them. `sync --ci` is the scheduled job's version |
 | `check` | TypeScript typecheck |
 | `test` | Vitest: the Dyson client against real HJ10 captures and history, the stores, sessions, routers |
 | `build` | The client into `dist/public`, the server into `dist/index.js` |
@@ -172,8 +187,9 @@ python3 -c 'import json, pathlib; print(json.loads((pathlib.Path.home() / ".conf
 Until `DATABASE_URL` and `DYSON_TOKEN` are set, each run posts a notice and
 skips the sync, so there are no failure emails before TiDB exists. This repo
 is public, so its Actions logs are too: `--ci` prints only how many history
-slots it stored and when the reading was taken, never the values or the
-device name. It fails rather than passes when the database can't be used, or
+slots it stored, whether it stored outdoor air, and when the reading was
+taken, never the values or the device name. Error messages show `{serial}`
+in place of the purifier's serial. It fails rather than passes when the database can't be used, or
 when either the history or the reading fails, after storing the other. Each secret reaches only the step that uses
 it. GitHub pauses schedules in a public repo after 60 days without a commit;
 a healthcheck notices, and the Actions tab re-enables it.

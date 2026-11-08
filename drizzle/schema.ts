@@ -74,3 +74,27 @@ export const historySlots = mysqlTable(
 
 export type HistorySlotRow = typeof historySlots.$inferSelect;
 export type NewHistorySlotRow = typeof historySlots.$inferInsert;
+
+/**
+ * Dyson's hourly outdoor air figures for the purifier's area (see
+ * server/dyson/outdoor.ts), one row per hour, copied along with the history.
+ * The place name isn't stored. Times are UTC.
+ */
+export const outdoorReadings = mysqlTable(
+  "outdoor_readings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    serial: varchar("serial", { length: 32 }).notNull(),
+    measuredAt: datetime("measured_at", { mode: "date" }).notNull(),
+    aqi: smallint("aqi"),
+    /** The AQI's band, like "Good". */
+    aqiName: varchar("aqi_name", { length: 64 }),
+    pm25: double("pm25"),
+    pm10: double("pm10"),
+    /** Dyson doesn't say which unit. */
+    no2: double("no2"),
+  },
+  table => [uniqueIndex("outdoor_readings_by_time").on(table.serial, table.measuredAt)]
+);
+
+export type NewOutdoorReadingRow = typeof outdoorReadings.$inferInsert;

@@ -124,6 +124,44 @@ describe("runSync", () => {
     expect(lines).toEqual(["Stored 3 history slots."]);
   });
 
+  it("stores Dyson's outdoor air with the history, and says only that in CI", async () => {
+    const { lines, readHistory, options } = setup();
+    const air = {
+      measuredAt: new Date("2026-11-08T03:00:00Z"),
+      aqi: 49,
+      aqiName: "Good",
+      pm25: 7,
+      pm10: 13,
+      no2: 21,
+    };
+    readHistory.mockResolvedValue({ device: realLive().device, slots: SLOTS, outdoor: air });
+    const saveOutdoor = vi.fn(async () => true);
+    await runSync({ ...options, saveOutdoor, ci: true, env: CI_ENV });
+    expect(saveOutdoor).toHaveBeenCalledWith(SERIAL, air);
+    expect(lines).toEqual([
+      "Stored 3 history slots, outdoor air and a reading taken at 2026-11-07T00:10:25.075Z.",
+    ]);
+
+    lines.length = 0;
+    await runSync({ ...options, saveOutdoor, env: {} });
+    expect(lines).toContain("Outdoor air for 2026-11-08T03:00:00.000Z: AQI 49 (Good), PM2.5 7, PM10 13, NO2 21.");
+  });
+
+  it("notes missing outdoor air without failing the run", async () => {
+    const { lines, warnings, readHistory, options } = setup();
+    readHistory.mockResolvedValue({
+      device: realLive().device,
+      slots: SLOTS,
+      outdoor: null,
+      outdoorError: "GET /v1/environment/devices/{serial}/data returned 500",
+    });
+    await runSync({ ...options, ci: true, env: CI_ENV });
+    expect(warnings).toEqual([
+      "note: no outdoor air from Dyson (GET /v1/environment/devices/{serial}/data returned 500).",
+    ]);
+    expect(lines).toEqual(["Stored 3 history slots and a reading taken at 2026-11-07T00:10:25.075Z."]);
+  });
+
   it("fails in CI without a database, before reaching Dyson", async () => {
     const { read, readHistory, options } = setup();
     await expect(runSync({ ...options, ci: true, env: {} })).rejects.toThrow(

@@ -15,6 +15,13 @@
       "when": 1794070121821,
       "tag": "0001_history_slots",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794108107991,
+      "tag": "0002_outdoor_readings",
+      "breakpoints": true
     }
   ]
 }
