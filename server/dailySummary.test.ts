@@ -79,6 +79,22 @@ describe("summarizeDays", () => {
     expect(day).toMatchObject({ slots: 1, avgPm25: 4, peakPm25: 4, fanHours: 0.5 });
   });
 
+  it("counts the slot still filling in only up to now", () => {
+    const [day] = summarizeDays(
+      [slot("2026-11-07T21:45:00Z", 40), slot("2026-11-07T22:00:00Z", 40)],
+      NY,
+      7,
+      new Date("2026-11-07T22:01:00Z")
+    );
+    expect(day!.minutesAbove).toBe(16);
+  });
+
+  it("weights the average fan speed by how long the fan ran", () => {
+    // A minute at speed 2, then a full slot at 8: 7.6, not 5.
+    const [day] = summarizeDays([slot("2026-11-07T15:00:00Z", 3, 2, 60), slot("2026-11-07T15:15:00Z", 3, 8, 900)], NY, 7, NOW);
+    expect(day!.avgFanSpeed).toBe(7.6);
+  });
+
   it("leaves time over the guideline unknown on a day with no PM2.5 at all", () => {
     const [day] = summarizeDays([slot("2026-11-07T15:00:00Z", null)], NY, 7, NOW);
     expect(day).toMatchObject({ slots: 0, avgPm25: null, aboveGuideline: false, minutesAbove: null, spike: null });

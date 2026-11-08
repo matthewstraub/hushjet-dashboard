@@ -33,22 +33,33 @@ export interface DaySummary {
    * under WHO_PM25_24H again, or null if none has yet.
    */
   spike: { clearedMinutes: number | null } | null;
-  /** Average fan speed over the slots the fan ran in. */
+  /** Average fan speed while the fan ran, weighted by how long it ran in each slot. */
   avgFanSpeed: number | null;
   /** Hours the fan ran. */
   fanHours: number | null;
 }
 
-/** "2026-11-05" for when `date` falls in `timeZone`. */
-export function localDate(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
+/**
+ * A function giving "2026-11-05" for when a date falls in `timeZone`. Make
+ * one and reuse it: building the formatter is the slow part.
+ */
+export function localDateIn(timeZone: string): (date: Date) => string {
+  const format = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(date);
-  const part = (type: string) => parts.find(p => p.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
+  });
+  return date => {
+    const parts = format.formatToParts(date);
+    const part = (type: string) => parts.find(p => p.type === type)?.value ?? "";
+    return `${part("year")}-${part("month")}-${part("day")}`;
+  };
+}
+
+/** "2026-11-05" for when `date` falls in `timeZone`. */
+export function localDate(date: Date, timeZone: string): string {
+  return localDateIn(timeZone)(date);
 }
 
 /** Whether `name` is a time zone this runtime knows, like "America/New_York". */
@@ -67,11 +78,6 @@ function mean(values: number[]): number | null {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
-function average(values: number[]): number | null {
-  const value = mean(values);
-  return value === null ? null : round1(value);
-}
-
 /** The date `n` calendar days before a YYYY-MM-DD date, whatever the clocks do. */
 export function daysBefore(date: string, n: number): string {
   const [year, month, day] = date.split("-").map(Number);
@@ -83,12 +89,13 @@ export function daysBefore(date: string, n: number): string {
  * oldest first; a spike is followed into later slots, past midnight if need be.
  */
 export function summarizeDays(slots: HistorySlot[], timeZone: string, days: number, now: Date): DaySummary[] {
-  const today = localDate(now, timeZone);
+  const dateOf = localDateIn(timeZone);
+  const today = dateOf(now);
   // Counted in calendar days, so a clock change doesn't add or drop one.
   const oldest = daysBefore(today, days - 1);
   const byDate = new Map<string, number[]>();
   slots.forEach((slot, index) => {
-    const date = localDate(slot.slotStart, timeZone);
+    const date = dateOf(slot.slotStart);
     if (date < oldest || date > today) return;
     const indexes = byDate.get(date);
     if (indexes) indexes.push(index);
@@ -105,7 +112,8 @@ export function summarizeDays(slots: HistorySlot[], timeZone: string, days: numb
       return best === null || value > slots[best]!.pm25! ? index : best;
     }, null);
     const peak = peakIndex === null ? null : slots[peakIndex]!;
-    const ran = day.filter(slot => slot.runSeconds !== null && slot.runSeconds > 0);
+    const ran = day.filter(slot => slot.runSeconds !== null && slot.runSeconds > 0 && slot.fanSpeed !== null);
+    const ranSeconds = ran.reduce((sum, slot) => sum + slot.runSeconds!, 0);
     const pmMean = mean(pm.map(slot => slot.pm25!));
     const runSeconds = day.filter(slot => slot.runSeconds !== null).map(slot => slot.runSeconds!);
 
@@ -118,13 +126,26 @@ export function summarizeDays(slots: HistorySlot[], timeZone: string, days: numb
       aboveGuideline: pmMean !== null && pmMean > WHO_PM25_24H,
       peakPm25: peak?.pm25 ?? null,
       peakAt: peak?.slotStart ?? null,
-      minutesAbove: pm.length ? pm.filter(slot => slot.pm25! > WHO_PM25_24H).length * SLOT_MINUTES : null,
+      minutesAbove: pm.length ? minutesOver(pm, now) : null,
       spike: peakIndex !== null && peak!.pm25! >= SPIKE_PM25 ? { clearedMinutes: clearedAfter(slots, peakIndex) } : null,
-      avgFanSpeed: average(ran.filter(slot => slot.fanSpeed !== null).map(slot => slot.fanSpeed!)),
+      avgFanSpeed: ranSeconds
+        ? round1(ran.reduce((sum, slot) => sum + slot.fanSpeed! * slot.runSeconds!, 0) / ranSeconds)
+        : null,
       fanHours: runSeconds.length ? round1(runSeconds.reduce((sum, seconds) => sum + seconds, 0) / 3600) : null,
     });
   });
   return summaries.reverse();
+}
+
+/**
+ * Minutes in slots averaging over the guideline. The newest slot is still
+ * filling in, so it counts only up to now.
+ */
+function minutesOver(slots: HistorySlot[], now: Date): number {
+  const ms = slots
+    .filter(slot => slot.pm25! > WHO_PM25_24H)
+    .reduce((sum, slot) => sum + Math.min(SLOT_MINUTES * 60_000, Math.max(0, now.getTime() - slot.slotStart.getTime())), 0);
+  return Math.round(ms / 60_000);
 }
 
 /** Minutes from slots[peakIndex] to the next slot averaging under the guideline. */
