@@ -28,7 +28,7 @@ const PURIFIER: Entry[] = [
 const SOURCES: Entry[] = [
   {
     term: "Live reading",
-    text: "Opening the dashboard asks the purifier, through Dyson's cloud, for its current state, sensor readings and fault report. It takes about two seconds. A reading is reused for a minute, taken again every two minutes while the page is open, and on demand with Refresh. Every new reading is saved.",
+    text: "Opening the dashboard asks the purifier, through Dyson's cloud, for its current state, sensor readings and fault report. It takes two or three seconds. A reading is reused for a minute, taken again every two minutes while the page is open, and on demand with Refresh. Every new reading is saved.",
   },
   {
     term: "15-minute history",

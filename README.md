@@ -43,7 +43,7 @@ which Dyson can change without notice.
    missing is asked for once more; a reading without its fault report still
    counts.
 
-That takes about three seconds and works from anywhere, so neither the server
+That takes two or three seconds and works from anywhere, so neither the server
 nor the sync needs to be on the purifier's network. The dashboard reuses a
 reading for a minute, refreshes an open tab every two minutes, and does a new
 read when you press Refresh. Every new reading is stored when `DATABASE_URL`
@@ -127,9 +127,11 @@ seconds.
 
 - **Who can change things:** only the admin role. Viewers don't get the tab,
   and the server refuses their changes. In production that means signing in
-  with `ADMIN_PASSWORD`, so the tab stays hidden until it's set. Locally, with
-  no `VIEWER_PASSWORD`, the site is open and the controls work without
-  signing in.
+  with `ADMIN_PASSWORD`, so the tab stays hidden until it's set. Viewers get a
+  "Sign in as admin" link to the admin sign-in page, `/login?admin=1`. Signing
+  in there replaces the viewer session, so there's no need to sign out first.
+  Locally, with no `VIEWER_PASSWORD`, the site is open and the controls work
+  without signing in.
 - **A speed** turns Auto off, as it does in the MyDyson app.
 - **Night mode** on the HJ10 turns Auto off and holds the fan at speed 4, even
   when Auto is sent with it. Turning night mode off leaves Auto off; switch
@@ -273,9 +275,13 @@ uses:
   Migrations run here, so a schema change ships with the push that adds it.
 - Start: `pnpm run start`
 - Environment: `NODE_ENV=production`, `DATABASE_URL` (the same string as the
-  GitHub secret), `VIEWER_PASSWORD`, `DYSON_TOKEN`, and a `SESSION_SECRET`
-  Render generated. `ADMIN_PASSWORD` is unset, so the Controls tab stays
-  hidden until it's added. Use a different password from `VIEWER_PASSWORD`.
+  GitHub secret), `VIEWER_PASSWORD`, `ADMIN_PASSWORD` (a different password,
+  for the Controls tab), `DYSON_TOKEN`, and a `SESSION_SECRET` Render
+  generated.
+
+Saving an environment variable redeploys the service. The old server keeps
+answering until the new one is live, so a new or changed password only works
+once Render shows that deploy as live.
 
 Every push to `main` redeploys, including changes to docs.
 
