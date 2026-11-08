@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  dayLabel,
+  durationText,
   fanText,
   minutesText,
   numberText,
@@ -44,6 +46,19 @@ describe("format", () => {
       "0 min",
       "–",
     ]);
+  });
+
+  it("shows durations and day names", () => {
+    expect([durationText(0), durationText(45), durationText(120), durationText(90)]).toEqual([
+      "0 min",
+      "45 min",
+      "2 h",
+      "1 h 30 min",
+    ]);
+    expect(dayLabel("2026-11-07", true)).toBe("Today");
+    expect(dayLabel("2026-11-05", false)).toBe(
+      new Date(2026, 10, 5, 12).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })
+    );
   });
 
   it("describes the fan", () => {

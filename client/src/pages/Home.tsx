@@ -1,3 +1,4 @@
+import { DailyCard } from "@/components/DailyCard";
 import { HistoryCard } from "@/components/HistoryCard";
 import { StatusCard } from "@/components/StatusCard";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export default function Home() {
     onSuccess: data => {
       utils.readings.live.setData(undefined, data);
       void utils.readings.history.invalidate();
+      void utils.readings.daily.invalidate();
     },
   });
   const logout = trpc.auth.logout.useMutation({
@@ -178,6 +180,8 @@ export default function Home() {
         />
 
         <HistoryCard />
+
+        <DailyCard />
       </main>
     </div>
   );
