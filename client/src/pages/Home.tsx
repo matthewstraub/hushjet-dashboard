@@ -1,9 +1,9 @@
 import { DailyCard } from "@/components/DailyCard";
 import { HistoryCard } from "@/components/HistoryCard";
+import { RefreshActions } from "@/components/RefreshActions";
 import { SiteHeader } from "@/components/SiteHeader";
 import { AirComparisonCard } from "@/components/AirComparisonCard";
 import { StatusCard } from "@/components/StatusCard";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { clockTime, fanText, onOffText, percentText, pmText } from "@/lib/format";
+import { useLiveReading } from "@/hooks/useLiveReading";
+import { fanText, onOffText, percentText, pmText } from "@/lib/format";
 import { latestFailure } from "@/lib/status";
 import { trpc } from "@/lib/trpc";
 import {
@@ -22,26 +23,15 @@ import {
   Fan,
   Filter,
   Moon,
-  RefreshCw,
   Wind,
   type LucideIcon,
 } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Home() {
-  const utils = trpc.useUtils();
-  const live = trpc.readings.live.useQuery(undefined, {
-    // The server reuses a reading for a minute; this keeps an open tab current.
-    refetchInterval: 2 * 60_000,
-    staleTime: 60_000,
-    retry: false,
-  });
-  const refresh = trpc.readings.refresh.useMutation({
-    onSuccess: data => {
-      utils.readings.live.setData(undefined, data);
-      void utils.readings.history.invalidate();
-      void utils.readings.daily.invalidate();
-    },
-  });
+  const me = trpc.auth.me.useQuery();
+  const isAdmin = me.data?.role === "admin";
+  const { live, refresh, busy } = useLiveReading();
 
   const reading = live.data?.reading;
   const device = live.data?.device;
@@ -56,7 +46,6 @@ export default function Home() {
     refreshAt: refresh.submittedAt,
   });
   const error = reading ? (latestError === refresh.error ? refresh.error : null) : latestError;
-  const busy = live.isFetching || refresh.isPending;
   const loading = live.isLoading;
 
   const subtitle = device
@@ -70,17 +59,7 @@ export default function Home() {
       <SiteHeader
         subtitle={subtitle}
         actions={
-          <>
-            {reading && (
-              <span className="text-xs text-muted-foreground">
-                Updated {clockTime(reading.takenAt)}
-              </span>
-            )}
-            <Button variant="outline" size="sm" onClick={() => refresh.mutate()} disabled={busy}>
-              <RefreshCw className={busy ? "animate-spin" : undefined} aria-hidden />
-              Refresh
-            </Button>
-          </>
+          <RefreshActions takenAt={reading?.takenAt} busy={busy} onRefresh={() => refresh.mutate()} />
         }
       />
 
@@ -127,6 +106,7 @@ export default function Home() {
           </Tile>
         </section>
 
+        {/* The settings as text only. Changing them is on the Controls tab. */}
         {reading && (
           <Card>
             <CardContent className="space-y-3">
@@ -141,10 +121,28 @@ export default function Home() {
               </dl>
               {reading.monitoring === false && (
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <AlertTriangle className="size-3.5" aria-hidden />
-                  Continuous monitoring is off, so PM is only measured while the fan runs. Turn
-                  it on in the MyDyson app.
+                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+                  <span>
+                    Continuous monitoring is off, so PM is only measured while the fan runs.
+                    {!isAdmin && " Turn it on in the MyDyson app."}
+                  </span>
                 </p>
+              )}
+              {isAdmin ? (
+                <p className="text-xs">
+                  <Link
+                    href="/controls"
+                    className="rounded-sm text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  >
+                    Change these on the Controls tab
+                  </Link>
+                </p>
+              ) : (
+                me.data?.adminEnabled && (
+                  <p className="text-xs text-muted-foreground">
+                    Sign out and back in with the admin password to change these.
+                  </p>
+                )
               )}
             </CardContent>
           </Card>

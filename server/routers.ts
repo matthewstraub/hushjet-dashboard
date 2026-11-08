@@ -4,12 +4,14 @@ import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { resolveAuthState } from "./_core/session";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router, viewerProcedure } from "./_core/trpc";
+import { adminProcedure, publicProcedure, router, viewerProcedure } from "./_core/trpc";
 import { isTimeZone, SPIKE_PM25, summarizeDays, WHO_PM25_24H } from "./dailySummary";
 import { getDb } from "./db";
 import { DysonApiError, DysonAuthError } from "./dyson/appApi";
 import { DysonConfigError, dysonTokenSource } from "./dyson/config";
+import { controlPurifier, SLEEP_TIMER_MAX } from "./dyson/command";
 import { DeviceSelectionError } from "./dyson/devices";
+import { readSchedule, type Schedule } from "./dyson/schedule";
 import { SnapshotError } from "./dyson/snapshot";
 import { historyRefresher } from "./historyRefresh";
 import { newestSlotStart, storedSlots } from "./historyStore";
@@ -56,9 +58,32 @@ export function dysonError(error: unknown): TRPCError {
   });
 }
 
-async function liveReading(maxAgeMs: number) {
+/** How long the Schedule tab reuses what Dyson returned. */
+export const SCHEDULE_MAX_AGE_MS = 5 * 60_000;
+let scheduleCache: { at: number; schedule: Schedule } | null = null;
+
+const changesInput = z
+  .object({
+    power: z.boolean().optional(),
+    auto: z.boolean().optional(),
+    fanSpeed: z.number().int().min(1).max(10).optional(),
+    nightMode: z.boolean().optional(),
+    sleepTimer: z
+      .number()
+      .int()
+      .min(0)
+      .max(SLEEP_TIMER_MAX)
+      .refine(minutes => minutes === 0 || minutes >= 15, "The sleep timer is off, or 15 to 540 minutes")
+      .optional(),
+    monitoring: z.boolean().optional(),
+  })
+  .refine(changes => Object.values(changes).some(value => value !== undefined), "Nothing to change");
+
+async function liveReading(maxAgeMs: number, afterChange = false) {
   try {
-    const { device, reading, cached, stored } = await liveReader.get(maxAgeMs);
+    const { device, reading, cached, stored } = afterChange
+      ? await liveReader.readAfterChange()
+      : await liveReader.get(maxAgeMs);
     return {
       device: {
         name: device.name,
@@ -109,6 +134,30 @@ export const appRouter = router({
     live: viewerProcedure.query(() => liveReading(LIVE_MAX_AGE_MS)),
     /** Read again now, unless a read finished in the last few seconds. */
     refresh: viewerProcedure.mutation(() => liveReading(REFRESH_MIN_GAP_MS)),
+    /**
+     * Change the purifier's settings, then read it again. Admin only: this is
+     * the one thing the dashboard can do to the purifier itself.
+     */
+    control: adminProcedure.input(changesInput).mutation(async ({ input }) => {
+      let confirmed: boolean;
+      try {
+        ({ confirmed } = await controlPurifier(input));
+      } catch (error) {
+        throw dysonError(error);
+      }
+      return { confirmed, live: await liveReading(0, true) };
+    }),
+    /** The schedule set in the MyDyson app, reused for a few minutes. */
+    schedule: viewerProcedure.query(async () => {
+      if (scheduleCache && Date.now() - scheduleCache.at < SCHEDULE_MAX_AGE_MS) return scheduleCache.schedule;
+      try {
+        const schedule = await readSchedule();
+        scheduleCache = { at: Date.now(), schedule };
+        return schedule;
+      } catch (error) {
+        throw dysonError(error);
+      }
+    }),
     /**
      * What the charts show: Dyson's 15-minute history and the stored
      * readings, after copying Dyson's newest slots (every ten minutes at

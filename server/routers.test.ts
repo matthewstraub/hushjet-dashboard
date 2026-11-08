@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DysonAuthError } from "./dyson/appApi";
 import { DysonConfigError } from "./dyson/config";
+import { controlPurifier } from "./dyson/command";
+import { readSchedule } from "./dyson/schedule";
 import { SnapshotError } from "./dyson/snapshot";
 import { getDb } from "./db";
 import { historyRefresher } from "./historyRefresh";
@@ -10,7 +12,9 @@ import { storedHistory } from "./readingsStore";
 import { appRouter } from "./routers";
 import { createMockContext, createViewerContext } from "./testHelpers";
 
-vi.mock("./live", () => ({ liveReader: { get: vi.fn() } }));
+vi.mock("./live", () => ({ liveReader: { get: vi.fn(), readAfterChange: vi.fn() } }));
+vi.mock("./dyson/command", () => ({ controlPurifier: vi.fn(), SLEEP_TIMER_MAX: 540 }));
+vi.mock("./dyson/schedule", () => ({ readSchedule: vi.fn() }));
 vi.mock("./historyRefresh", () => ({
   historyRefresher: { refresh: vi.fn(async () => {}) },
 }));
@@ -203,5 +207,62 @@ describe("auth.me", () => {
     vi.stubEnv("VIEWER_PASSWORD", "");
     const caller = appRouter.createCaller(createMockContext("admin"));
     expect(await caller.auth.me()).toMatchObject({ signInRequired: false, adminEnabled: true });
+  });
+});
+
+describe("readings.control", () => {
+  const admin = () => appRouter.createCaller(createMockContext("admin"));
+  const live = {
+    device: { serial: "HJ1-US-TEST000A", name: "Bedroom", productType: "897", model: "SP01-AB", topicRoot: "897", firmwareVersion: null, newVersionAvailable: false },
+    reading: { serial: "HJ1-US-TEST000A", nightMode: true } as never,
+    cached: false,
+    stored: true,
+  };
+
+  afterEach(() => {
+    vi.mocked(controlPurifier).mockReset();
+    vi.mocked(liveReader.readAfterChange).mockReset();
+  });
+
+  it("is for admins only", async () => {
+    await expect(viewer().readings.control({ nightMode: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(controlPurifier).not.toHaveBeenCalled();
+  });
+
+  it("sends the change, then reads the purifier again", async () => {
+    vi.mocked(controlPurifier).mockResolvedValue({ confirmed: true, reported: { nmod: "ON" } });
+    vi.mocked(liveReader.readAfterChange).mockResolvedValue(live);
+    const result = await admin().readings.control({ nightMode: true });
+    expect(controlPurifier).toHaveBeenCalledWith({ nightMode: true });
+    expect(liveReader.readAfterChange).toHaveBeenCalledOnce();
+    expect(result.confirmed).toBe(true);
+    expect(result.live.reading).toMatchObject({ nightMode: true });
+    expect(result.live.device).toEqual({ name: "Bedroom", model: "SP01-AB", firmwareVersion: null, newVersionAvailable: false });
+  });
+
+  it.each([
+    [{}, "Nothing to change"],
+    [{ fanSpeed: 11 }, ""],
+    [{ fanSpeed: 2.5 }, ""],
+    [{ sleepTimer: 5 }, "15 to 540"],
+    [{ sleepTimer: 600 }, ""],
+  ])("refuses %j", async (input, message) => {
+    await expect(admin().readings.control(input as never)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    if (message) await expect(admin().readings.control(input as never)).rejects.toThrow(message);
+    expect(controlPurifier).not.toHaveBeenCalled();
+  });
+
+  it("explains a failed command without a 401", async () => {
+    vi.mocked(controlPurifier).mockRejectedValue(new SnapshotError("Couldn't send the command"));
+    await expect(admin().readings.control({ power: false })).rejects.toMatchObject({ code: "BAD_GATEWAY" });
+  });
+});
+
+describe("readings.schedule", () => {
+  it("returns Dyson's schedule to anyone signed in", async () => {
+    const schedule = { enabled: true, periods: [] };
+    vi.mocked(readSchedule).mockResolvedValue(schedule);
+    expect(await viewer().readings.schedule()).toEqual(schedule);
+    await expect(appRouter.createCaller(createMockContext(null)).readings.schedule()).rejects.toThrow("Sign in required");
   });
 });

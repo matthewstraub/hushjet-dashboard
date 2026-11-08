@@ -4,7 +4,7 @@
  */
 
 import { DysonAppApi } from "./appApi";
-import { cloudAuthFromResponse } from "./cloud";
+import { cloudAuthFromResponse, type CloudAuth } from "./cloud";
 import { loadDysonConfig } from "./config";
 import { chooseDevice, DeviceSelectionError, deviceFromManifest, type Device } from "./devices";
 import type { Reading } from "./messages";
@@ -22,7 +22,14 @@ export interface ReadOptions {
   timeoutMs?: number;
 }
 
-export async function readPurifier(options: ReadOptions = {}): Promise<LiveReading> {
+export interface CloudSession {
+  device: Device;
+  topicRoot: string;
+  auth: CloudAuth;
+}
+
+/** The device list, then fresh IoT credentials: what any MQTT talk with the purifier needs. */
+export async function cloudSession(options: { env?: NodeJS.ProcessEnv; fetch?: typeof fetch } = {}): Promise<CloudSession> {
   const config = loadDysonConfig(options.env);
   const api = new DysonAppApi({
     token: config.token,
@@ -33,9 +40,15 @@ export async function readPurifier(options: ReadOptions = {}): Promise<LiveReadi
   const device = chooseDevice((await api.manifest()).map(deviceFromManifest), config.serial);
   const topicRoot = device.topicRoot ?? device.productType;
   if (!topicRoot) {
-    throw new DeviceSelectionError(`The manifest gives no MQTT topic prefix for ${device.serial}`);
+    // No serial here: this can reach a public log through `pnpm sync --ci`.
+    throw new DeviceSelectionError("The manifest gives no MQTT topic prefix for the purifier");
   }
   const auth = cloudAuthFromResponse(await api.iotCredentials(device.serial));
+  return { device, topicRoot, auth };
+}
+
+export async function readPurifier(options: ReadOptions = {}): Promise<LiveReading> {
+  const { device, topicRoot, auth } = await cloudSession(options);
   const reading = await takeSnapshot({
     auth,
     serial: device.serial,

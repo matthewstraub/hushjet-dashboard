@@ -61,7 +61,7 @@ export interface SnapshotOptions {
 /** How long the fault report gets after state and sensor data before it's asked for again. */
 const FAULTS_GRACE_MS = 500;
 
-const defaultConnect: ConnectFn = (url, options) =>
+export const defaultConnect: ConnectFn = (url, options) =>
   mqtt.connect(url, options) as unknown as SnapshotClient;
 
 /** The time format the purifier expects in commands: no milliseconds. */

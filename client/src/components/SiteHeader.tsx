@@ -6,6 +6,9 @@ import { Link, useLocation } from "wouter";
 
 const PAGES = [
   { href: "/", label: "Dashboard" },
+  // Admin only: the one page that changes the purifier.
+  { href: "/controls", label: "Controls", admin: true },
+  { href: "/schedule", label: "Schedule" },
   { href: "/info", label: "Info" },
   // Pushed to the far right, under the page's own controls.
   { href: "/settings", label: "Settings", end: true },
@@ -18,6 +21,7 @@ export function SiteHeader({ subtitle, actions }: { subtitle: string; actions?: 
     onSuccess: () => window.location.assign("/login"),
   });
   const [location] = useLocation();
+  const isAdmin = me.data?.role === "admin";
 
   return (
     <header className="border-b border-border">
@@ -42,7 +46,7 @@ export function SiteHeader({ subtitle, actions }: { subtitle: string; actions?: 
         </div>
       </div>
       <nav aria-label="Pages" className="mx-auto flex max-w-5xl gap-5 px-4 pt-3">
-        {PAGES.map(page => {
+        {PAGES.filter(page => !page.admin || isAdmin).map(page => {
           const active = location === page.href;
           return (
             <Link
@@ -51,14 +55,15 @@ export function SiteHeader({ subtitle, actions }: { subtitle: string; actions?: 
               aria-current={active ? "page" : undefined}
               className={cn(
                 "-mb-px flex items-center gap-1.5 rounded-t-sm border-b-2 pb-2 text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                page.end && "ml-auto",
+                page.end && "ml-auto min-w-6 justify-center",
                 active
                   ? "border-primary font-medium text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
-              {page.end && <Settings className="size-3.5" aria-hidden />}
-              {page.label}
+              {page.end && <Settings className="size-4 sm:size-3.5" aria-hidden />}
+              {/* Icon only on phones, so five tabs fit in one row. */}
+              <span className={page.end ? "sr-only sm:not-sr-only" : undefined}>{page.label}</span>
             </Link>
           );
         })}
