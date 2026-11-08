@@ -66,6 +66,22 @@ Slots that aren't copied before their week ends are likely lost.
 The charts use those slots for PM and fan speed. Filter life isn't in Dyson's
 history, so it comes from the stored readings.
 
+## Daily summary
+
+Below the charts, one row per day for the last seven days, from the same
+15-minute slots and by day in the viewer's time zone:
+
+- **Avg PM2.5** and the **peak** 15-minute average, with its time. A day
+  averaging over 15 µg/m³, the WHO's guideline for a 24-hour average, is
+  marked with a warning sign.
+- **Over 15:** how long the 15-minute averages were above that guideline.
+- **Spike cleared in:** when the day's peak was a spike (35 µg/m³ or more),
+  how long until the average was back under 15. "Not yet" if it hasn't been.
+- **Avg fan speed** while the fan ran, and how many **hours it ran**.
+
+Today's row is marked "so far", and a day with less than about 23 hours of
+data is marked partial.
+
 ## Run it locally
 
 Log in to Dyson once with the CLI. It asks for your password and the code

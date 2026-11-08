@@ -12,6 +12,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { ScrollRegion } from "@/components/ScrollRegion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -66,7 +67,8 @@ type Row = { t: number };
 
 export function HistoryCard() {
   const [range, setRange] = useState<Range>("24h");
-  const history = trpc.readings.history.useQuery({ range });
+  // An open page reloads as often as the server copies Dyson's history.
+  const history = trpc.readings.history.useQuery({ range }, { refetchInterval: 10 * 60_000 });
   const utils = trpc.useUtils();
   // Loading the history copies Dyson's newest slots first, so the status
   // card's "saved history" may have moved on.
@@ -359,7 +361,7 @@ function SlotsTable({ rows }: { rows: SlotRow[] }) {
       <summary className="cursor-pointer text-muted-foreground">
         Show the latest {latest.length} 15-minute averages as a table
       </summary>
-      <div className="mt-3 overflow-x-auto">
+      <ScrollRegion label="15-minute averages" className="mt-3">
         <table className="w-full text-left tabular-nums">
           <thead className="text-muted-foreground">
             <tr>
@@ -384,7 +386,7 @@ function SlotsTable({ rows }: { rows: SlotRow[] }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </details>
   );
 }
@@ -397,7 +399,7 @@ function ReadingsTable({ rows }: { rows: ReadingRow[] }) {
       <summary className="cursor-pointer text-muted-foreground">
         Show the latest {latest.length} readings as a table
       </summary>
-      <div className="mt-3 overflow-x-auto">
+      <ScrollRegion label="Stored readings" className="mt-3">
         <table className="w-full text-left tabular-nums">
           <thead className="text-muted-foreground">
             <tr>
@@ -420,7 +422,7 @@ function ReadingsTable({ rows }: { rows: ReadingRow[] }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </details>
   );
 }

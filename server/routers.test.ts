@@ -124,6 +124,36 @@ describe("readings", () => {
     expect(historyRefresher.refresh).not.toHaveBeenCalled();
   });
 
+  it("summarizes days in the viewer's time zone, after copying Dyson's history", async () => {
+    vi.mocked(getDb).mockResolvedValueOnce({} as never);
+    vi.mocked(storedSlots).mockResolvedValueOnce([
+      {
+        slotStart: new Date(Date.now() - 60 * 60_000),
+        pm25: 40,
+        pm10: 41,
+        aqi: 40,
+        fanSpeed: 6,
+        runSeconds: 900,
+      },
+    ]);
+    const daily = await viewer().readings.daily({ timeZone: "America/New_York", days: 7 });
+    expect(historyRefresher.refresh).toHaveBeenCalledWith(600_000, 5_000);
+    expect(daily.databaseConfigured).toBe(true);
+    expect(daily.summaries).toHaveLength(1);
+    expect(daily.summaries[0]).toMatchObject({ peakPm25: 40, spike: { clearedMinutes: null } });
+  });
+
+  it("refuses an unknown time zone, and has no summaries without a database", async () => {
+    await expect(viewer().readings.daily({ timeZone: "Mars/Olympus", days: 7 })).rejects.toThrow(
+      "Unknown time zone"
+    );
+    expect(await viewer().readings.daily({ timeZone: "UTC", days: 7 })).toEqual({
+      databaseConfigured: false,
+      thresholds: { guideline: 15, spike: 35 },
+      summaries: [],
+    });
+  });
+
   it("copies Dyson's history before reading the stored history", async () => {
     vi.mocked(getDb).mockResolvedValueOnce({} as never);
     const slot = {

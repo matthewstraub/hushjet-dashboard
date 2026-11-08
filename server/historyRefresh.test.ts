@@ -58,6 +58,27 @@ describe("HistoryRefresher", () => {
     expect(read).toHaveBeenCalledOnce();
   });
 
+  it("makes a request that arrives during a copy wait for it", async () => {
+    const { read, save, refresher } = setup();
+    let finish!: () => void;
+    read.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          finish = () => resolve({ device: deviceFromManifest(MANIFEST_ENTRY), slots: SLOTS });
+        })
+    );
+    const done: string[] = [];
+    const first = refresher.refresh(GAP, 5_000).then(() => done.push("first"));
+    const second = refresher.refresh(GAP, 5_000).then(() => done.push("second"));
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(done).toEqual([]);
+
+    finish();
+    await Promise.all([first, second]);
+    expect(save).toHaveBeenCalledOnce();
+    expect(done.sort()).toEqual(["first", "second"]);
+  });
+
   it("doesn't throw, and waits out the gap after a failure too", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const { read, save, refresher, advance } = setup();

@@ -31,18 +31,20 @@ export class HistoryRefresher {
    * on in the background. Never throws: stored history is still worth showing.
    */
   async refresh(minGapMs: number, waitMs: number): Promise<void> {
-    if (this.lastAttempt !== null && this.clock() - this.lastAttempt < minGapMs)
-      return;
+    // A copy already running is waited for, gap or not: the charts and the
+    // daily summary load together, and both should see what it copies.
     if (!this.pending) {
+      if (this.lastAttempt !== null && this.clock() - this.lastAttempt < minGapMs) return;
       // Counted from the start, so a failing Dyson is tried once per gap, not on every page load.
       this.lastAttempt = this.clock();
       this.pending = this.copy().finally(() => {
         this.pending = null;
       });
     }
+    const copying = this.pending;
     let timer: NodeJS.Timeout | undefined;
     await Promise.race([
-      this.pending,
+      copying,
       new Promise<void>(resolve => {
         timer = setTimeout(resolve, waitMs);
       }),

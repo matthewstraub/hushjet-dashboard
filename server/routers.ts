@@ -5,6 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { resolveAuthState } from "./_core/session";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, viewerProcedure } from "./_core/trpc";
+import { isTimeZone, SPIKE_PM25, summarizeDays, WHO_PM25_24H } from "./dailySummary";
 import { getDb } from "./db";
 import { DysonApiError, DysonAuthError } from "./dyson/appApi";
 import { DysonConfigError, dysonTokenSource } from "./dyson/config";
@@ -120,6 +121,27 @@ export const appRouter = router({
         const since = new Date(Date.now() - HISTORY_RANGES[input.range]);
         const [points, slots] = await Promise.all([storedHistory(since), storedSlots(since)]);
         return { databaseConfigured: true, points: points ?? [], slots: slots ?? [] };
+      }),
+    /**
+     * One summary per day in the viewer's time zone, from Dyson's 15-minute
+     * history, after copying its newest slots like `history` does.
+     */
+    daily: viewerProcedure
+      .input(
+        z.object({
+          timeZone: z.string().max(64).refine(isTimeZone, "Unknown time zone"),
+          days: z.number().int().min(1).max(31),
+        })
+      )
+      .query(async ({ input }) => {
+        const thresholds = { guideline: WHO_PM25_24H, spike: SPIKE_PM25 };
+        if (!(await getDb())) return { databaseConfigured: false, thresholds, summaries: [] };
+        await historyRefresher.refresh(HISTORY_COPY_GAP_MS, HISTORY_COPY_WAIT_MS);
+        const now = new Date();
+        // A day more than asked for, since a local day can start before the UTC one.
+        const slots = await storedSlots(new Date(now.getTime() - (input.days + 1) * 24 * HOUR_MS));
+        const summaries = summarizeDays(slots ?? [], input.timeZone, input.days, now);
+        return { databaseConfigured: true, thresholds, summaries };
       }),
   }),
 });

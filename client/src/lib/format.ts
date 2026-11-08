@@ -96,6 +96,25 @@ export function fullTime(ms: number): string {
   });
 }
 
+/** "45 min", "2 h", "1 h 30 min". */
+export function durationText(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+/** "Today", or "Thu, Nov 5" for a YYYY-MM-DD date in the viewer's time zone. */
+export function dayLabel(date: string, today: boolean): string {
+  if (today) return "Today";
+  // Noon, so no time zone shift can move it to another day.
+  return new Date(`${date}T12:00:00`).toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 /** "just now", "12 min ago", "3 h ago", "2 days ago". */
 export function agoText(ms: number, now: number): string {
   const minutes = Math.floor((now - ms) / 60_000);

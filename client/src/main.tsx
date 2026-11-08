@@ -42,6 +42,7 @@ const UNBATCHED = new Set([
   "readings.live",
   "readings.refresh",
   "readings.history",
+  "readings.daily",
 ]);
 
 const trpcClient = trpc.createClient({
