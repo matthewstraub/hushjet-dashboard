@@ -1,11 +1,13 @@
 import { PurifierControls } from "@/components/PurifierControls";
 import { RefreshActions } from "@/components/RefreshActions";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLiveReading } from "@/hooks/useLiveReading";
+import { ADMIN_SIGN_IN_HREF } from "@/lib/signIn";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, Lock } from "lucide-react";
+import { AlertTriangle, Lock, LogIn } from "lucide-react";
 
 const SUBTITLE = "Change the purifier's settings";
 
@@ -34,10 +36,20 @@ export default function Controls() {
               <CardDescription>
                 {me.data?.adminEnabled === false
                   ? "This site has no admin password, so the purifier's settings can only be changed in the MyDyson app."
-                  : "Sign out, then sign in with the admin password to change the purifier's settings here."}{" "}
+                  : "Sign in with the admin password to change the purifier's settings here."}{" "}
                 The Dashboard shows the current settings.
               </CardDescription>
             </CardHeader>
+            {me.data?.adminEnabled && (
+              <CardContent>
+                <Button asChild size="sm">
+                  <a href={ADMIN_SIGN_IN_HREF}>
+                    <LogIn aria-hidden />
+                    Sign in as admin
+                  </a>
+                </Button>
+              </CardContent>
+            )}
           </Card>
         )}
       </main>

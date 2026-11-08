@@ -14,6 +14,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLiveReading } from "@/hooks/useLiveReading";
+import { ADMIN_SIGN_IN_HREF } from "@/lib/signIn";
 import { fanText, onOffText, percentText, pmText } from "@/lib/format";
 import { latestFailure } from "@/lib/status";
 import { trpc } from "@/lib/trpc";
@@ -139,8 +140,13 @@ export default function Home() {
                 </p>
               ) : (
                 me.data?.adminEnabled && (
-                  <p className="text-xs text-muted-foreground">
-                    Sign out and back in with the admin password to change these.
+                  <p className="text-xs">
+                    <a
+                      href={ADMIN_SIGN_IN_HREF}
+                      className="rounded-sm text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    >
+                      Sign in as admin to change these
+                    </a>
                   </p>
                 )
               )}
