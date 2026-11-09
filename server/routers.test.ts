@@ -8,6 +8,7 @@ import { getDb } from "./db";
 import { historyRefresher } from "./historyRefresh";
 import { storedSlots } from "./historyStore";
 import { liveReader } from "./live";
+import { addNote, deleteNote, notesPage, notesSince, updateNote } from "./notesStore";
 import { storedHistory } from "./readingsStore";
 import { appRouter } from "./routers";
 import { createMockContext, createViewerContext } from "./testHelpers";
@@ -32,6 +33,13 @@ vi.mock("./outdoorStore", () => ({
     pm10: 13,
     no2: 21,
   })),
+}));
+vi.mock("./notesStore", () => ({
+  notesSince: vi.fn(async () => null),
+  notesPage: vi.fn(async () => null),
+  addNote: vi.fn(async () => null),
+  updateNote: vi.fn(async () => null),
+  deleteNote: vi.fn(async () => null),
 }));
 vi.mock("./readingsStore", () => ({
   storedHistory: vi.fn(async () => []),
@@ -264,5 +272,94 @@ describe("readings.schedule", () => {
     vi.mocked(readSchedule).mockResolvedValue(schedule);
     expect(await viewer().readings.schedule()).toEqual(schedule);
     await expect(appRouter.createCaller(createMockContext(null)).readings.schedule()).rejects.toThrow("Sign in required");
+  });
+});
+
+describe("notes", () => {
+  const admin = () => appRouter.createCaller(createMockContext("admin"));
+  const note = {
+    category: "cooking" as const,
+    startsAt: new Date(Date.now() - 30 * 60_000),
+    endsAt: null,
+    details: " Stir-fry on the stove ",
+  };
+
+  it("shows the notes in a chart range to anyone signed in", async () => {
+    const stored = { id: 1, ...note, details: "Stir-fry on the stove" };
+    vi.mocked(notesSince).mockResolvedValueOnce([stored]);
+    const before = Date.now();
+    expect(await viewer().notes.inRange({ range: "24h" })).toEqual({ databaseConfigured: true, notes: [stored] });
+    const since = vi.mocked(notesSince).mock.calls[0]![0].getTime();
+    expect(since).toBeGreaterThanOrEqual(before - 24 * 3_600_000);
+    expect(since).toBeLessThanOrEqual(Date.now() - 24 * 3_600_000);
+    await expect(appRouter.createCaller(createMockContext(null)).notes.list({})).rejects.toThrow(
+      "Sign in required"
+    );
+  });
+
+  it("lists notes a page at a time", async () => {
+    const next = { startsAt: new Date("2026-11-07T18:00:00Z"), id: 3 };
+    vi.mocked(notesPage).mockResolvedValueOnce({ notes: [], next });
+    const cursor = { startsAt: new Date("2026-11-08T18:00:00Z"), id: 9 };
+    expect(await viewer().notes.list({ cursor, limit: 20 })).toEqual({
+      databaseConfigured: true,
+      notes: [],
+      nextCursor: next,
+    });
+    expect(notesPage).toHaveBeenCalledWith(cursor, 20);
+  });
+
+  it("has no notes without a database", async () => {
+    expect(await viewer().notes.inRange({ range: "7d" })).toEqual({ databaseConfigured: false, notes: [] });
+    expect(await viewer().notes.list({})).toEqual({ databaseConfigured: false, notes: [], nextCursor: null });
+    expect(notesPage).toHaveBeenCalledWith(null, 50);
+    await expect(admin().notes.create(note)).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "Notes need a database, like the history.",
+    });
+  });
+
+  it("lets only admins add, change or delete notes", async () => {
+    await expect(viewer().notes.create(note)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(viewer().notes.update({ id: 1, ...note })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(viewer().notes.delete({ id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(addNote).not.toHaveBeenCalled();
+    expect(updateNote).not.toHaveBeenCalled();
+    expect(deleteNote).not.toHaveBeenCalled();
+  });
+
+  it("adds, changes and deletes notes for an admin", async () => {
+    vi.mocked(addNote).mockResolvedValueOnce(12);
+    expect(await admin().notes.create(note)).toEqual({ id: 12 });
+    expect(addNote).toHaveBeenCalledWith(note);
+
+    const ended = { ...note, endsAt: new Date(Date.now() - 5 * 60_000) };
+    vi.mocked(updateNote).mockResolvedValueOnce(true);
+    expect(await admin().notes.update({ id: 12, ...ended })).toEqual({ id: 12 });
+    expect(updateNote).toHaveBeenCalledWith(12, ended);
+
+    vi.mocked(deleteNote).mockResolvedValueOnce(true);
+    expect(await admin().notes.delete({ id: 12 })).toEqual({ id: 12 });
+    expect(deleteNote).toHaveBeenCalledWith(12);
+  });
+
+  it("says when a note is gone", async () => {
+    vi.mocked(updateNote).mockResolvedValueOnce(false);
+    await expect(admin().notes.update({ id: 99, ...note })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    vi.mocked(deleteNote).mockResolvedValueOnce(false);
+    await expect(admin().notes.delete({ id: 99 })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it.each([
+    [{ category: "smoking" }, ""],
+    [{ startsAt: new Date(Date.now() + 2 * 3_600_000) }, "The start can't be in the future"],
+    [{ endsAt: new Date(Date.now() - 60 * 60_000) }, "The end has to be after the start"],
+    [{ category: "other", details: "  " }, "Say what happened"],
+    [{ details: "x".repeat(5_001) }, ""],
+  ])("refuses %j", async (change, message) => {
+    const input = { ...note, ...change } as never;
+    await expect(admin().notes.create(input)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    if (message) await expect(admin().notes.create(input)).rejects.toThrow(message);
+    expect(addNote).not.toHaveBeenCalled();
   });
 });

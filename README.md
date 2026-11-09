@@ -10,10 +10,13 @@ sign-in, and a free Render web service.
 Signed in with the admin password, you can change the purifier's settings on
 the Controls tab: power, Auto, fan speed, night mode, the sleep timer and
 continuous monitoring. The Dashboard tab only shows them, so looking through
-the readings can't change anything. The Schedule tab shows the schedule set
-in the MyDyson app. The Info tab explains the purifier, where each number
-comes from, and terms like PM2.5, µg/m³, AQI and NO₂. The Settings tab picks
-light, dark, or the device's theme (the default), saved in each browser.
+the readings can't change the purifier. Notes about what was going on at
+home, like cooking, cleaning or open windows, are added in a pop-up on the
+Dashboard and marked on its charts. The Schedule tab shows the schedule set
+in the MyDyson app. The
+Info tab explains the purifier, where each number comes from, and terms like
+PM2.5, µg/m³, AQI and NO₂. The Settings tab picks light, dark, or the
+device's theme (the default), saved in each browser.
 
 The look follows Dyson's own: Futura-style type in a quiet black, white and
 gray interface. Dyson's DysonFutura is proprietary, so it uses Jost, a free
@@ -30,7 +33,7 @@ which Dyson can change without notice.
 | `server/` | Express and tRPC. `server/_core/` holds sign-in, sessions and security headers, from the Dexcom app |
 | `server/dyson/` | The Dyson client: App API calls, the AWS IoT connection and the message parser, ported from the CLI |
 | `shared/` | Code and types the client and server share |
-| `drizzle/` | The `readings`, `history_slots` and `outdoor_readings` tables and their migrations |
+| `drizzle/` | The `readings`, `history_slots`, `outdoor_readings` and `notes` tables and their migrations |
 | `cli/` | The Python `hushjet` CLI: Dyson login, the device list, and live MQTT on the home network or through Dyson's cloud. See [cli/README.md](cli/README.md) |
 
 ## How a reading works
@@ -116,7 +119,7 @@ data is marked partial.
 The admin role gets a Controls tab: power, Auto, night mode, continuous
 monitoring, fan speeds 1 to 10, and a sleep timer. The switches are only on
 that tab. The Dashboard shows the same settings as text, for everyone, so
-looking through the readings can't change anything.
+looking through the readings can't change the purifier.
 
 Each change is one `STATE-SET` command on the purifier's command topic in
 Dyson's cloud, in the format hass-dyson uses for cloud-connected Dyson
@@ -153,6 +156,40 @@ On the HJ10, a period that asks for Auto with night mode on runs at speed 4,
 since night mode turns Auto off (see [Controls](#controls)). The fan history
 shows that: a steady speed 4 through the scheduled night, then Auto again
 after the morning change.
+
+## Notes
+
+Notes are a log of what was going on at home that can change the air:
+cooking, cleaning, open windows, the heating, the air conditioning, or
+anything else. They're there to look back on, for example to see how much
+cooking raises PM2.5 and how long the purifier takes to clear it. They live
+with the charts, on the Dashboard's History card, as in the PetLibro
+dashboard.
+
+- **Adding one:** **Add note**, above the charts, opens a pop-up set for now.
+  With a mouse, clicking a chart opens it set for the 15-minute slot clicked.
+  Each note has a kind, a start, an optional end and optional details, which
+  Other needs. **Now**, beside Until, ends a note at the current time, for
+  something that just stopped.
+- **On the charts:** the PM, indoor and outdoor, and fan charts mark each
+  note with a dashed line at its start, a faint band for how long it lasted,
+  and its icon above the plot. Notes too close together to tell apart share
+  one icon, with a count. The charts reach as far as the newest note, so one
+  made just now shows before Dyson's next 15-minute average arrives. Pointing
+  at a chart lists the notes at that time in the tooltip.
+- **Opening one:** click or tap an icon above a chart. The admin role can
+  edit or delete the note there; when several share the icon, the pop-up
+  lists them first.
+- **Lists:** under the charts, the notes in the chart's range, newest first.
+  **All notes** opens a page with every note, a page at a time.
+- **Who can change notes:** everyone signed in sees them. Only the admin role
+  adds, edits or deletes them, and the server refuses changes from viewers.
+  Viewers get a "Sign in as admin" link instead of the buttons.
+- **Rules:** a note can't start in the future, can last up to 31 days, and
+  can have up to 1,000 characters of details. The form and the server check
+  the same rules, in `shared/notes.ts`.
+- **Storage:** the `notes` table, with times in UTC, shown in each viewer's
+  time zone. Its migration runs with the others when Render builds.
 
 ## Run it locally
 
@@ -208,7 +245,7 @@ npx pnpm@10.4.1 sync
 | --- | --- | --- |
 | `DATABASE_URL` | For history | TiDB or MySQL. TiDB needs `?ssl={"rejectUnauthorized":true}` |
 | `VIEWER_PASSWORD` | In production | The site password |
-| `ADMIN_PASSWORD` | For controls | A second password that unlocks the Controls tab. Without it, nobody can change settings from the dashboard |
+| `ADMIN_PASSWORD` | For controls and notes | A second password that unlocks the Controls tab and adding notes. Without it, nobody can change settings or add notes from the dashboard |
 | `SESSION_SECRET` | In production | Signs session cookies, e.g. `openssl rand -hex 32` |
 | `DYSON_TOKEN` | In production | The token from `hushjet login`. Locally it's read from the CLI's saved login instead |
 | `DYSON_SERIAL` | Optional | Which device, when the account has more than one HushJet |
@@ -276,8 +313,8 @@ uses:
 - Start: `pnpm run start`
 - Environment: `NODE_ENV=production`, `DATABASE_URL` (the same string as the
   GitHub secret), `VIEWER_PASSWORD`, `ADMIN_PASSWORD` (a different password,
-  for the Controls tab), `DYSON_TOKEN`, and a `SESSION_SECRET` Render
-  generated.
+  for the Controls tab and notes), `DYSON_TOKEN`, and a `SESSION_SECRET`
+  Render generated.
 
 Saving an environment variable redeploys the service. The old server keeps
 answering until the new one is live, so a new or changed password only works
