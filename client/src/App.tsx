@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Controls from "./pages/Controls";
 import Home from "./pages/Home";
 import Info from "./pages/Info";
+import Notes from "./pages/Notes";
 import Schedule from "./pages/Schedule";
 import Settings from "./pages/Settings";
 
@@ -14,6 +15,7 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/notes"} component={Notes} />
       <Route path={"/controls"} component={Controls} />
       <Route path={"/schedule"} component={Schedule} />
       <Route path={"/info"} component={Info} />

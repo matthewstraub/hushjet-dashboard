@@ -1,4 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
+import { NOTE_CATEGORIES, noteProblem, type NoteInput } from "@shared/notes";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -16,6 +17,7 @@ import { SnapshotError } from "./dyson/snapshot";
 import { historyRefresher } from "./historyRefresh";
 import { newestSlotStart, storedSlots } from "./historyStore";
 import { liveReader } from "./live";
+import { addNote, deleteNote, notesPage, notesSince, updateNote } from "./notesStore";
 import { latestOutdoor, storedOutdoor } from "./outdoorStore";
 import { latestSyncAt, storedHistory } from "./readingsStore";
 
@@ -78,6 +80,34 @@ const changesInput = z
     monitoring: z.boolean().optional(),
   })
   .refine(changes => Object.values(changes).some(value => value !== undefined), "Nothing to change");
+
+/**
+ * A note's shape. The rules (an end after the start, details for Other, and
+ * so on) are noteProblem's in shared/notes.ts, which the form uses too.
+ */
+const noteInput = z.object({
+  category: z.enum(NOTE_CATEGORIES),
+  startsAt: z.date(),
+  endsAt: z.date().nullable(),
+  // Room for whitespace around the longest details; noteProblem checks them trimmed.
+  details: z.string().max(5_000),
+});
+
+/** The note as given, or a BAD_REQUEST with noteProblem's message. */
+function checkedNote({ category, startsAt, endsAt, details }: NoteInput): NoteInput {
+  const problem = noteProblem({ category, startsAt, endsAt, details });
+  if (problem) throw new TRPCError({ code: "BAD_REQUEST", message: problem });
+  return { category, startsAt, endsAt, details };
+}
+
+/** For a change to notes with no database to keep them in. */
+function needsDatabase(): never {
+  throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Notes need a database, like the history." });
+}
+
+function noSuchNote(): never {
+  throw new TRPCError({ code: "NOT_FOUND", message: "That note doesn't exist. It may have been deleted." });
+}
 
 async function liveReading(maxAgeMs: number, afterChange = false) {
   try {
@@ -196,6 +226,56 @@ export const appRouter = router({
         const slots = await storedSlots(new Date(now.getTime() - (input.days + 1) * 24 * HOUR_MS));
         const summaries = summarizeDays(slots ?? [], input.timeZone, input.days, now);
         return { databaseConfigured: true, thresholds, summaries };
+      }),
+  }),
+  /**
+   * What was going on at home, typed in on the Notes tab. Everyone signed in
+   * sees notes; only the admin role adds, changes or deletes them.
+   */
+  notes: router({
+    /** Notes overlapping a chart range, oldest first, for marking them on the charts. */
+    inRange: viewerProcedure
+      .input(z.object({ range: z.enum(["24h", "7d", "30d"]) }))
+      .query(async ({ input }) => {
+        const notes = await notesSince(new Date(Date.now() - HISTORY_RANGES[input.range]));
+        return { databaseConfigured: notes !== null, notes: notes ?? [] };
+      }),
+    /** Every note, newest first, a page at a time. */
+    list: viewerProcedure
+      .input(
+        z.object({
+          limit: z.number().int().min(1).max(100).default(50),
+          cursor: z.object({ startsAt: z.date(), id: z.number().int().positive() }).nullish(),
+        })
+      )
+      .query(async ({ input }) => {
+        const page = await notesPage(input.cursor ?? null, input.limit);
+        return {
+          databaseConfigured: page !== null,
+          notes: page?.notes ?? [],
+          nextCursor: page?.next ?? null,
+        };
+      }),
+    create: adminProcedure.input(noteInput).mutation(async ({ input }) => {
+      const id = await addNote(checkedNote(input));
+      if (id === null) needsDatabase();
+      return { id };
+    }),
+    update: adminProcedure
+      .input(noteInput.extend({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        const found = await updateNote(input.id, checkedNote(input));
+        if (found === null) needsDatabase();
+        if (!found) noSuchNote();
+        return { id: input.id };
+      }),
+    delete: adminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        const found = await deleteNote(input.id);
+        if (found === null) needsDatabase();
+        if (!found) noSuchNote();
+        return { id: input.id };
       }),
   }),
 });

@@ -16,6 +16,7 @@ use the dashboard as it is for a while before adding more.
 - [x] Controls tab for the admin role: power, Auto, night mode, monitoring, fan speed and sleep timer
 - [x] Read-only Schedule tab showing the schedule set in the MyDyson app
 - [x] "Sign in as admin" link for viewers
+- [x] Notes: cooking, cleaning, open windows, heating, air conditioning or other, added in a pop-up on the Dashboard and marked on its charts. Admins add and edit them; everyone sees them
 
 ## Ideas for later
 
@@ -35,6 +36,12 @@ use the dashboard as it is for a while before adding more.
   - Then remove the workflow's `schedule`. That also ends GitHub's pause of scheduled workflows in public repos after 60 days without a commit.
 - [ ] **Hear about failed syncs, with no code**
   - Set the `HEALTHCHECK_URL` secret to a free healthchecks.io check. The workflow already pings it.
+- [ ] **What a note did to the air**
+  - For each note, the PM2.5 peak in the hours after it and how long until the 15-minute average was back under 15, like the daily summary's spikes.
+  - Then averages by kind: how much cooking usually raises PM2.5, and how long it takes to clear.
+  - The notes table already has what this needs: the kind, the start and the end.
+- [ ] **Notes in the daily summary**
+  - The icons of each day's notes beside its row, so a bad day points to its likely cause.
 - [ ] **Filter-life forecast**
   - Once there are a few weeks of filter readings to project from. Both filters read 99–100% in November 2026.
 

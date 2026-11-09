@@ -7,9 +7,11 @@ import {
   json,
   mysqlTable,
   smallint,
+  timestamp,
   uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
+import { sql } from "drizzle-orm";
 
 /**
  * One row per reading: the purifier's state and sensor data at one moment,
@@ -98,3 +100,30 @@ export const outdoorReadings = mysqlTable(
 );
 
 export type NewOutdoorReadingRow = typeof outdoorReadings.$inferInsert;
+
+/**
+ * Notes typed in on the Notes tab: what was going on at home, like cooking
+ * or open windows, so the charts can be read against it (see
+ * shared/notes.ts). `ends_at` is null for a moment rather than a span.
+ * Times are UTC.
+ */
+export const notes = mysqlTable(
+  "notes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** One of NOTE_CATEGORIES, like "cooking". */
+    category: varchar("category", { length: 16 }).notNull(),
+    startsAt: datetime("starts_at", { mode: "date" }).notNull(),
+    endsAt: datetime("ends_at", { mode: "date" }),
+    details: varchar("details", { length: 1000 }).notNull().default(""),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .onUpdateNow(),
+  },
+  table => [index("notes_by_time").on(table.startsAt)]
+);
+
+export type NoteRow = typeof notes.$inferSelect;
+export type NewNoteRow = typeof notes.$inferInsert;

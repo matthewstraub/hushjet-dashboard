@@ -52,11 +52,15 @@ const SOURCES: Entry[] = [
   },
   {
     term: "Controls",
-    text: "Signed in with the admin password, the Controls tab sends each change to the purifier through Dyson's cloud, the way the MyDyson app does, then takes a new reading so it shows what the purifier reports. The Dashboard only shows the settings, so browsing it can't change anything.",
+    text: "Signed in with the admin password, the Controls tab sends each change to the purifier through Dyson's cloud, the way the MyDyson app does, then takes a new reading so it shows what the purifier reports. The Dashboard only shows the settings, so browsing it can't change the purifier.",
+  },
+  {
+    term: "Notes",
+    text: "Added on the Dashboard, signed in with the admin password: with Add note, or by clicking a chart at the time it happened. The charts mark each one, so a spike can be read against what was going on at home: cooking, cleaning, open windows, the heat or the air conditioning.",
   },
   {
     term: "Storage",
-    text: "Readings and history are saved in a TiDB database and aren't deleted. The dashboard runs on Render.",
+    text: "Readings, history and notes are saved in a TiDB database. Readings and history aren't deleted; a note stays until it's deleted. The dashboard runs on Render.",
   },
 ];
 

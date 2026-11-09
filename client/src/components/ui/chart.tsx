@@ -116,6 +116,7 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
+  footer,
 }: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
   React.ComponentProps<"div"> & {
     hideLabel?: boolean;
@@ -123,6 +124,8 @@ function ChartTooltipContent({
     indicator?: "line" | "dot" | "dashed";
     nameKey?: string;
     labelKey?: string;
+    /** Shown under the values, like the notes at that time. */
+    footer?: React.ReactNode;
   }) {
   const { config } = useChart();
 
@@ -232,7 +235,8 @@ function ChartTooltipContent({
                           {itemConfig?.label || item.name}
                         </span>
                       </div>
-                      {item.value && (
+                      {/* 0 is a value too: clean air reads 0 µg/m³. */}
+                      {item.value !== undefined && item.value !== null && (
                         <span className="text-foreground font-mono font-medium tabular-nums">
                           {item.value.toLocaleString()}
                         </span>
@@ -244,6 +248,7 @@ function ChartTooltipContent({
             );
           })}
       </div>
+      {footer}
     </div>
   );
 }
