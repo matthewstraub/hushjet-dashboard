@@ -5,6 +5,7 @@ import {
   BAND_LIMITS,
   bandColor,
   BANDS,
+  bandStops,
   POLLUTANT_LABELS,
   type Band,
   type Pollutant,
@@ -136,6 +137,20 @@ export function AirQualityCard({
   );
 }
 
+/**
+ * A legend key for a line drawn in its bands' colors: a short line in the
+ * first three, since the line's color changes along it.
+ */
+export function BandLineKey() {
+  return (
+    <span aria-hidden className="flex h-0.5 w-4 overflow-hidden rounded-full">
+      {BANDS.slice(0, 3).map(band => (
+        <span key={band.id} className="flex-1" style={{ backgroundColor: bandColor(band) }} />
+      ))}
+    </span>
+  );
+}
+
 /** What Recharts' <Customized> passes in about the chart's y-axis and plot. */
 interface YAxisState {
   yAxisMap?: Record<string, { scale: ((value: number) => number) & { domain(): number[] } }>;
@@ -176,5 +191,28 @@ export function BandStrip({ pollutant, yAxisMap, offset }: { pollutant: Pollutan
         );
       })}
     </g>
+  );
+}
+
+/**
+ * Paints a PM line in the colors of the bands it passes through, as the
+ * MyDyson app does: a gradient down the y-axis that steps to the next band's
+ * color at each limit, so the line changes color where it crosses one. A line
+ * uses it with a stroke of `url(#id)`. Drawn through Recharts' <Customized>,
+ * which passes in the axis. It's laid out in the chart's own coordinates,
+ * since in a line's bounding box a flat line wouldn't be drawn at all.
+ */
+export function BandGradient({ id, pollutant, yAxisMap }: { id: string; pollutant: Pollutant } & YAxisState) {
+  const axis = yAxisMap ? Object.values(yAxisMap)[0] : undefined;
+  if (!axis) return null;
+  const [low = 0, high = 0] = axis.scale.domain();
+  return (
+    <defs>
+      <linearGradient id={id} gradientUnits="userSpaceOnUse" x1={0} x2={0} y1={axis.scale(high)} y2={axis.scale(low)}>
+        {bandStops(pollutant, low, high).map((stop, index) => (
+          <stop key={index} offset={stop.offset} style={{ stopColor: bandColor(stop.band) }} />
+        ))}
+      </linearGradient>
+    </defs>
   );
 }

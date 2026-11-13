@@ -100,6 +100,30 @@ export function bandColor(band: Band): string {
   return `var(--aq-${band.id})`;
 }
 
+/** A color stop down a y-axis: 0 at its top, 1 at its bottom. */
+export interface BandStop {
+  offset: number;
+  band: Band;
+}
+
+/**
+ * The color stops that paint a line in each band's color, as the MyDyson
+ * app's charts do, for a y-axis from `low` to `high`. Each limit in between
+ * has a pair of stops, so the color steps right where the line crosses it.
+ */
+export function bandStops(pollutant: Pollutant, low: number, high: number): BandStop[] {
+  const stops: BandStop[] = [{ offset: 0, band: bandFor(pollutant, high)! }];
+  const limits = BAND_LIMITS[pollutant];
+  for (let index = limits.length - 1; index >= 0; index--) {
+    const limit = limits[index]!;
+    if (limit <= low || limit >= high) continue;
+    const offset = (high - limit) / (high - low);
+    stops.push({ offset, band: BANDS[index + 1]! }, { offset, band: BANDS[index]! });
+  }
+  stops.push({ offset: 1, band: bandFor(pollutant, low)! });
+  return stops;
+}
+
 /** "up to 35" for PM2.5 in Good, "over 250" in Severe. */
 export function bandRangeText(pollutant: Pollutant, band: Band): string {
   const index = BANDS.indexOf(band);

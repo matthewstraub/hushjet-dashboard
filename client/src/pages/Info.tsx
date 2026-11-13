@@ -165,7 +165,8 @@ export default function Info() {
             The dashboard rates PM2.5 and PM10 on the six-band scale the MyDyson app uses, in the
             same colors. Each has its own limits, since PM10 takes in coarser particles too. The
             air quality at the top of the Dashboard is the worse of the two, and the dominant
-            pollutant is the one further along its scale.
+            pollutant is the one further along its scale. On the History charts, each line takes
+            the color of the band it's in, as in the app.
           </p>
           <Entries entries={SCALE} />
           <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">
