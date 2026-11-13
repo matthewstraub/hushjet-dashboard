@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { airQuality, bandFor, bandNamed, bandRangeText, BANDS, scaleScore } from "./airQuality";
+import { airQuality, bandFor, bandNamed, bandRangeText, BANDS, bandStops, scaleScore } from "./airQuality";
 
 const label = (pollutant: "pm25" | "pm10", value: number | null) => bandFor(pollutant, value)?.label ?? null;
 
@@ -83,5 +83,50 @@ describe("bandNamed and bandRangeText", () => {
     expect(bandRangeText("pm25", BANDS[0]!)).toBe("up to 35");
     expect(bandRangeText("pm10", BANDS[3]!)).toBe("up to 350");
     expect(bandRangeText("pm25", BANDS[5]!)).toBe("over 250");
+  });
+});
+
+describe("bandStops", () => {
+  const stops = (...args: Parameters<typeof bandStops>) =>
+    bandStops(...args).map(stop => [Number(stop.offset.toFixed(4)), stop.band.id]);
+
+  it("steps at each limit on the axis, from the top down", () => {
+    expect(stops("pm25", 0, 140)).toEqual([
+      [0, "very-poor"],
+      [0.5, "very-poor"],
+      [0.5, "poor"],
+      [0.6214, "poor"],
+      [0.6214, "fair"],
+      [0.75, "fair"],
+      [0.75, "good"],
+      [1, "good"],
+    ]);
+  });
+
+  it("is one color when the axis stays in one band, even up to its limit", () => {
+    expect(stops("pm25", 0, 20)).toEqual([
+      [0, "good"],
+      [1, "good"],
+    ]);
+    expect(stops("pm25", 0, 35)).toEqual([
+      [0, "good"],
+      [1, "good"],
+    ]);
+  });
+
+  it("uses PM10's own limits", () => {
+    expect(stops("pm10", 0, 60)).toEqual([
+      [0, "fair"],
+      [0.1667, "fair"],
+      [0.1667, "good"],
+      [1, "good"],
+    ]);
+  });
+
+  it("copes with a flat axis", () => {
+    expect(stops("pm25", 0, 0)).toEqual([
+      [0, "good"],
+      [1, "good"],
+    ]);
   });
 });

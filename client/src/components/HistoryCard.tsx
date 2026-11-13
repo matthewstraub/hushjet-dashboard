@@ -12,7 +12,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { BandLabel, BandStrip } from "@/components/AirQuality";
+import { BandGradient, BandLabel, BandLineKey, BandStrip } from "@/components/AirQuality";
 import { NoteDialog, type NoteDialogState } from "@/components/NoteDialog";
 import { NoteList } from "@/components/NoteList";
 import { NOTE_LANE, NoteMarkers, TooltipNotes } from "@/components/NoteMarkers";
@@ -30,7 +30,7 @@ import {
   timeAxis,
   type Range,
 } from "@/lib/format";
-import { bandFor, type Pollutant } from "@/lib/airQuality";
+import { bandColor, bandFor, type Pollutant } from "@/lib/airQuality";
 import { SLOT_MS, slotRows, withOutdoor, type SlotRowWithOutdoor } from "@/lib/history";
 import { noteOverlaps, notesAt, spanWithNotes } from "@/lib/notes";
 import { adminSignInHref } from "@/lib/signIn";
@@ -39,8 +39,8 @@ import { cn } from "@/lib/utils";
 // Named apart from the Note box below, which shows an empty or error state.
 import type { Note as NoteEntry } from "@shared/notes";
 import { Plus } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CartesianGrid, Customized, Line, LineChart, XAxis, YAxis } from "recharts";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { CartesianGrid, Customized, Line, LineChart, XAxis, YAxis, type DotProps } from "recharts";
 import { Link } from "wouter";
 
 // Short labels, so the tabs leave room for the title on a phone.
@@ -50,19 +50,24 @@ const RANGES: { value: Range; label: string; name: string }[] = [
   { value: "30d", label: "30d", name: "Last 30 days" },
 ];
 
-// Fixed order in every chart: the first series is --series-1, the second --series-2.
-const PM_CONFIG = {
-  pm25: { label: "PM2.5", color: "var(--series-1)" },
-  pm10: { label: "PM10", color: "var(--series-2)" },
+// PM2.5 and PM10 get a chart each, as in the MyDyson app, so each line can be
+// drawn in the colors of its own scale's bands. Those lines have no series color.
+const PM25_CONFIG = {
+  pm25: { label: "PM2.5" },
 } satisfies ChartConfig;
 
 // Indoors is the point and outdoors the context, so outdoors gets the
-// de-emphasis gray rather than another series color.
-const OUTDOOR_CONFIG = {
-  pm25: { label: "Indoors", color: "var(--series-1)" },
+// de-emphasis gray rather than the band colors.
+const PM25_OUTDOOR_CONFIG = {
+  pm25: { label: "Indoors" },
   outdoorPoint: { label: "Outdoors", color: "var(--muted-foreground)" },
 } satisfies ChartConfig;
 
+const PM10_CONFIG = {
+  pm10: { label: "PM10" },
+} satisfies ChartConfig;
+
+// Fixed order in the other charts: the first series is --series-1, the second --series-2.
 const FAN_CONFIG = {
   fan: { label: "Fan speed", color: "var(--series-1)" },
 } satisfies ChartConfig;
@@ -270,7 +275,11 @@ export function HistoryCharts({
   ].filter((t): t is number => t !== undefined);
   // Stretched to take in a note made since the newest slot started.
   const span = spanWithNotes([Math.min(...ends), Math.max(...ends)], notes, Date.now());
-  const hasOutdoor = slots.some(row => row.outdoorPoint !== null);
+  // Outdoor hours are on the slot rows, so they join the PM2.5 chart when
+  // its indoor line comes from the slots too.
+  const showOutdoor = pmFromSlots && slots.some(row => row.outdoorPoint !== null);
+  const pmData = pmFromSlots ? slots : readings;
+  const averages = pmFromSlots ? ", 15-minute averages" : "";
   const shownNotes = notes.filter(note => noteOverlaps(note, span));
   const marks = { notes: shownNotes, onAddAt, onSelectNotes };
   return (
@@ -278,33 +287,33 @@ export function HistoryCharts({
       <div className="grid gap-8 lg:grid-cols-2">
         <TimeChart
           className="lg:col-span-2"
-          title={
-            pmFromSlots
-              ? "PM2.5 and PM10, µg/m³, 15-minute averages"
-              : "PM2.5 and PM10, µg/m³"
-          }
-          config={PM_CONFIG}
-          data={pmFromSlots ? slots : readings}
+          title={showOutdoor ? "PM2.5 indoors and outdoors, µg/m³" : `PM2.5, µg/m³${averages}`}
+          config={showOutdoor ? PM25_OUTDOOR_CONFIG : PM25_CONFIG}
+          data={pmData}
           span={span}
           slotted={pmFromSlots}
-          bands={{ pm25: "pm25", pm10: "pm10" }}
+          sampled={showOutdoor ? ["outdoorPoint"] : undefined}
+          scale="pm25"
+          banded={["pm25"]}
+          note={
+            showOutdoor
+              ? "The indoor line takes the color of each band it passes through, shown beside the axis. Each gray dot is an hour of Dyson's outdoor estimate that was saved, and the dashed line joins them across hours that weren't."
+              : "The line takes the color of each band it passes through, shown beside the axis."
+          }
           {...marks}
         />
-        {hasOutdoor && (
-          <TimeChart
-            className="lg:col-span-2"
-            title="PM2.5 indoors and outdoors, µg/m³"
-            config={OUTDOOR_CONFIG}
-            data={slots}
-            span={span}
-            sampled={["outdoorPoint"]}
-            note="Each gray dot is an hour of Dyson's outdoor estimate that was saved. The dashed line joins them across hours that weren't. The colors beside the axis are the air quality bands for PM2.5."
-            slotted
-            bands={{ pm25: "pm25", outdoorPoint: "pm25" }}
-            strip="pm25"
-            {...marks}
-          />
-        )}
+        <TimeChart
+          className="lg:col-span-2"
+          title={`PM10, µg/m³${averages}`}
+          config={PM10_CONFIG}
+          data={pmData}
+          span={span}
+          slotted={pmFromSlots}
+          scale="pm10"
+          banded={["pm10"]}
+          note="PM10's bands start higher than PM2.5's, so the same level can be in a better band here."
+          {...marks}
+        />
         {pmFromSlots ? (
           <TimeChart
             title="Fan speed, 15-minute average"
@@ -365,8 +374,8 @@ function TimeChart({
   lane = notes.length > 0,
   onAddAt,
   onSelectNotes,
-  bands,
-  strip,
+  scale,
+  banded,
   className,
 }: {
   title: string;
@@ -390,13 +399,21 @@ function TimeChart({
   onAddAt?: (t: number) => void;
   /** Clicking a marker opens the notes behind it. */
   onSelectNotes?: (notes: NoteEntry[]) => void;
-  /** The air quality scale each PM series is on, for its band in the tooltip. */
-  bands?: Partial<Record<string, Pollutant>>;
-  /** A strip of that scale's bands beside the y-axis, when every series is on it. */
-  strip?: Pollutant;
+  /** The air quality scale every series is on: its bands beside the y-axis, and each value's band in the tooltip. */
+  scale?: Pollutant;
+  /** Series whose line takes the color of each of the scale's bands it passes through. */
+  banded?: string[];
   className?: string;
 }) {
   const keys = Object.keys(config);
+  // This chart's own, for its banded lines' stroke to point to.
+  const gradientId = `bands-${useId().replace(/[^\w-]/g, "")}`;
+  const isBanded = (key: string) => Boolean(scale && banded?.includes(key));
+  const bandOf = (value: unknown) => (scale && typeof value === "number" ? bandFor(scale, value) : null);
+  const bandFill = (value: unknown) => {
+    const band = bandOf(value);
+    return band ? bandColor(band) : "var(--foreground)";
+  };
   const xAxis = timeAxis(...span);
   const [measure, width] = useWidth();
   // Pointing within a few pixels of a note shows it in the tooltip, at any range.
@@ -420,7 +437,9 @@ function TimeChart({
           <span className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             {keys.map(key => (
               <span key={key} className="flex items-center gap-1.5">
-                {sampled?.includes(key) ? (
+                {isBanded(key) ? (
+                  <BandLineKey />
+                ) : sampled?.includes(key) ? (
                   <span
                     aria-hidden
                     className="w-3 border-t-2 border-dashed"
@@ -488,18 +507,16 @@ function TimeChart({
                 <ChartTooltipContent
                   active={active}
                   label={label}
-                  // In legend order, though the lines are drawn in reverse.
-                  payload={[...(payload ?? [])].sort(
-                    (a, b) =>
-                      keys.indexOf(String(a.dataKey)) -
-                      keys.indexOf(String(b.dataKey))
-                  )}
+                  // In legend order, though the lines are drawn in reverse. A
+                  // banded line's key is in the color of its band there.
+                  payload={[...(payload ?? [])]
+                    .sort((a, b) => keys.indexOf(String(a.dataKey)) - keys.indexOf(String(b.dataKey)))
+                    .map(item => (isBanded(String(item.dataKey)) ? { ...item, color: bandFill(item.value) } : item))}
                   indicator="line"
                   valueExtra={
-                    bands &&
-                    ((key, value) => {
-                      const pollutant = bands[key];
-                      const band = pollutant && typeof value === "number" ? bandFor(pollutant, value) : null;
+                    scale &&
+                    ((_, value) => {
+                      const band = bandOf(value);
                       return band && <BandLabel band={band} className="text-muted-foreground" />;
                     })
                   }
@@ -523,7 +540,8 @@ function TimeChart({
               );
             }}
           />
-          {strip && <Customized component={<BandStrip pollutant={strip} />} />}
+          {scale && <Customized component={<BandStrip pollutant={scale} />} />}
+          {scale && banded && <Customized component={<BandGradient id={gradientId} pollutant={scale} />} />}
           {/* Under the lines, so the data stays on top. */}
           {notes.length > 0 && (
             <Customized component={<NoteMarkers notes={notes} span={span} onSelect={onSelectNotes} />} />
@@ -537,7 +555,7 @@ function TimeChart({
                 key={key}
                 dataKey={key}
                 type="linear"
-                stroke={`var(--color-${key})`}
+                stroke={isBanded(key) ? `url(#${gradientId})` : `var(--color-${key})`}
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -550,7 +568,14 @@ function TimeChart({
                     ? { r: 4, fill: `var(--color-${key})`, stroke: "var(--card)", strokeWidth: 2, strokeDasharray: "0" }
                     : false
                 }
-                activeDot={{ r: 4, stroke: "var(--card)", strokeWidth: 2 }}
+                activeDot={
+                  isBanded(key)
+                    ? // In its band's color, where the gradient could split it at a limit.
+                      ({ cx, cy, value }: DotProps & { value?: unknown }) => (
+                        <circle cx={cx} cy={cy} r={4} fill={bandFill(value)} stroke="var(--card)" strokeWidth={2} />
+                      )
+                    : { r: 4, stroke: "var(--card)", strokeWidth: 2 }
+                }
                 isAnimationActive={false}
               />
             );

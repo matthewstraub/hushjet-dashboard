@@ -74,10 +74,10 @@ a limit is in the lower band:
     as a bar with a marker;
   - the band of each reading on the PM tiles and in the indoor vs. outdoor
     card;
-  - each value's band in the chart tooltips;
-  - a strip of bands beside the axis of the PM2.5 chart. The PM2.5 and PM10
-    chart has none, since one strip can't fit both scales.
-  - The Info page explains each band.
+  - the PM2.5 and PM10 charts, one for each, as in the app: the line takes
+    the color of each band it passes through, a strip beside the axis shows
+    where each band starts, and the tooltip names each value's band;
+  - the Info page, which explains each band.
 - **Where the limits come from:** Dyson doesn't publish them. These are the
   ones the app shows, as recorded by the
   [hass-dyson](https://github.com/cmgrayb/hass-dyson) Home Assistant
@@ -89,8 +89,9 @@ a limit is in the lower band:
     4:1 to 13:1 on the dark card.
   - **Light mode** uses the same hues stepped darker for the white card,
     each 3:1 or more there except yellow, which turns olive first.
-  - **Status colors:** the bands only ever appear beside the band's name or
-    the reading, never as series colors.
+  - **Status colors:** a band's color only ever means that band: beside its
+    name or a reading, or on a PM line at that level. It never tells series
+    apart.
 - **Against the WHO guideline:** Good goes up to 35 µg/m³ of PM2.5, the US
   EPA's 24-hour standard. The daily summary marks the WHO's stricter
   guideline, 15 µg/m³ over 24 hours, so a day can be Good on the scale and
@@ -137,10 +138,10 @@ NO2 is in. Each history copy fetches it too and stores the hour in
 
 An "Indoor vs. outdoor air" card puts the purifier's latest reading and
 Dyson's latest outdoor hour side by side: PM2.5 and PM10 for both, and the AQI
-and NO2 outdoors (the purifier doesn't measure those). The history charts
-outdoor PM2.5 as a gray step line behind indoor PM2.5. Dyson only gives the
-current hour, so outdoor history builds up from the first copy, and an hour
-without a sync or a page load leaves a gap.
+and NO2 outdoors (the purifier doesn't measure those). The history's PM2.5
+chart shows each saved outdoor hour as a gray dot behind indoor PM2.5. Dyson
+only gives the current hour, so outdoor history builds up from the first copy,
+and an hour without a sync or a page load leaves a gap.
 
 ## Daily summary
 
@@ -215,9 +216,9 @@ dashboard.
   Each note has a kind, a start, an optional end and optional details, which
   Other needs. **Now**, beside Until, ends a note at the current time, for
   something that just stopped.
-- **On the charts:** the PM, indoor and outdoor, and fan charts mark each
-  note with a dashed line at its start, a faint band for how long it lasted,
-  and its icon above the plot. Notes too close together to tell apart share
+- **On the charts:** the PM2.5, PM10 and fan charts mark each note with a
+  dashed line at its start, a faint band for how long it lasted, and its
+  icon above the plot. Notes too close together to tell apart share
   one icon, with a count. The charts reach as far as the newest note, so one
   made just now shows before Dyson's next 15-minute average arrives. Pointing
   at a chart lists the notes at that time in the tooltip.

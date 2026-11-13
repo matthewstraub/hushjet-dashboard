@@ -17,7 +17,7 @@ use the dashboard as it is for a while before adding more.
 - [x] Read-only Schedule tab showing the schedule set in the MyDyson app
 - [x] "Sign in as admin" link for viewers
 - [x] Notes: cooking, cleaning, open windows, heating, air conditioning or other, added in a pop-up on the Dashboard and marked on its charts. Admins add and edit them; everyone sees them
-- [x] The MyDyson app's air quality scale, Good to Severe in its colors: an Air quality card with the bar, bands on the PM tiles, the indoor vs. outdoor card and the charts, and the scale explained on the Info page
+- [x] The MyDyson app's air quality scale, Good to Severe in its colors: an Air quality card with the bar, bands on the PM tiles and the indoor vs. outdoor card, PM2.5 and PM10 charts whose lines take each band's color, and the scale explained on the Info page
 
 ## Ideas for later
 
