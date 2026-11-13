@@ -12,6 +12,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { BandLabel, BandStrip } from "@/components/AirQuality";
 import { NoteDialog, type NoteDialogState } from "@/components/NoteDialog";
 import { NoteList } from "@/components/NoteList";
 import { NOTE_LANE, NoteMarkers, TooltipNotes } from "@/components/NoteMarkers";
@@ -29,6 +30,7 @@ import {
   timeAxis,
   type Range,
 } from "@/lib/format";
+import { bandFor, type Pollutant } from "@/lib/airQuality";
 import { SLOT_MS, slotRows, withOutdoor, type SlotRowWithOutdoor } from "@/lib/history";
 import { noteOverlaps, notesAt, spanWithNotes } from "@/lib/notes";
 import { adminSignInHref } from "@/lib/signIn";
@@ -285,6 +287,7 @@ export function HistoryCharts({
           data={pmFromSlots ? slots : readings}
           span={span}
           slotted={pmFromSlots}
+          bands={{ pm25: "pm25", pm10: "pm10" }}
           {...marks}
         />
         {hasOutdoor && (
@@ -295,8 +298,10 @@ export function HistoryCharts({
             data={slots}
             span={span}
             sampled={["outdoorPoint"]}
-            note="Each gray dot is an hour of Dyson's outdoor estimate that was saved. The dashed line joins them across hours that weren't."
+            note="Each gray dot is an hour of Dyson's outdoor estimate that was saved. The dashed line joins them across hours that weren't. The colors beside the axis are the air quality bands for PM2.5."
             slotted
+            bands={{ pm25: "pm25", outdoorPoint: "pm25" }}
+            strip="pm25"
             {...marks}
           />
         )}
@@ -360,6 +365,8 @@ function TimeChart({
   lane = notes.length > 0,
   onAddAt,
   onSelectNotes,
+  bands,
+  strip,
   className,
 }: {
   title: string;
@@ -383,6 +390,10 @@ function TimeChart({
   onAddAt?: (t: number) => void;
   /** Clicking a marker opens the notes behind it. */
   onSelectNotes?: (notes: NoteEntry[]) => void;
+  /** The air quality scale each PM series is on, for its band in the tooltip. */
+  bands?: Partial<Record<string, Pollutant>>;
+  /** A strip of that scale's bands beside the y-axis, when every series is on it. */
+  strip?: Pollutant;
   className?: string;
 }) {
   const keys = Object.keys(config);
@@ -484,6 +495,14 @@ function TimeChart({
                       keys.indexOf(String(b.dataKey))
                   )}
                   indicator="line"
+                  valueExtra={
+                    bands &&
+                    ((key, value) => {
+                      const pollutant = bands[key];
+                      const band = pollutant && typeof value === "number" ? bandFor(pollutant, value) : null;
+                      return band && <BandLabel band={band} className="text-muted-foreground" />;
+                    })
+                  }
                   labelFormatter={(_, items) => {
                     const t = Number(items?.[0]?.payload?.t);
                     return slotted ? slotTime(t) : fullTime(t);
@@ -504,6 +523,7 @@ function TimeChart({
               );
             }}
           />
+          {strip && <Customized component={<BandStrip pollutant={strip} />} />}
           {/* Under the lines, so the data stays on top. */}
           {notes.length > 0 && (
             <Customized component={<NoteMarkers notes={notes} span={span} onSelect={onSelectNotes} />} />

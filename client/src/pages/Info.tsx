@@ -1,5 +1,8 @@
+import { BandLabel } from "@/components/AirQuality";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { BANDS, bandRangeText } from "@/lib/airQuality";
+import { useEffect } from "react";
 
 interface Entry {
   term: React.ReactNode;
@@ -24,6 +27,19 @@ const PURIFIER: Entry[] = [
     text: "How much life the HEPA and carbon filters have left, as a percentage the purifier reports. It counts down from 100%. The purifier's filter warning is one of the checks on the Status card.",
   },
 ];
+
+/** Each band, with its limits for both pollutants and what it means. */
+const SCALE: Entry[] = BANDS.map(band => ({
+  term: <BandLabel band={band} className="text-foreground" />,
+  text: (
+    <>
+      <span className="block tabular-nums text-foreground">
+        PM2.5 {bandRangeText("pm25", band)}, PM10 {bandRangeText("pm10", band)} µg/m³
+      </span>
+      {band.meaning}
+    </>
+  ),
+}));
 
 const SOURCES: Entry[] = [
   {
@@ -87,7 +103,7 @@ const TERMS: Entry[] = [
   },
   {
     term: "Spike",
-    text: "On this dashboard, a 15-minute average of 35 µg/m³ or more, the level of the US EPA's 24-hour standard for outdoor PM2.5. It's cleared once the 15-minute average is back under 15.",
+    text: "On this dashboard, a 15-minute average of 35 µg/m³ or more: the level of the US EPA's 24-hour standard for outdoor PM2.5, and where the air quality scale goes from Good to Fair. It's cleared once the 15-minute average is back under 15.",
   },
   {
     term: "AQI",
@@ -124,6 +140,13 @@ const TERMS: Entry[] = [
 
 /** What the purifier is, where each number comes from, and what the terms mean. */
 export default function Info() {
+  // The Dashboard links to a section here; the page renders after the
+  // browser would have scrolled to it, so scroll once it's there.
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteHeader subtitle="How this dashboard works" />
@@ -135,6 +158,21 @@ export default function Info() {
             odors. A sensor inside measures the particles in the room as PM2.5 and PM10.
           </p>
           <Entries entries={PURIFIER} />
+        </Section>
+
+        <Section id="air-quality-scale" title="Air quality scale">
+          <p className="max-w-prose text-sm leading-relaxed">
+            The dashboard rates PM2.5 and PM10 on the six-band scale the MyDyson app uses, in the
+            same colors. Each has its own limits, since PM10 takes in coarser particles too. The
+            air quality at the top of the Dashboard is the worse of the two, and the dominant
+            pollutant is the one further along its scale.
+          </p>
+          <Entries entries={SCALE} />
+          <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">
+            Good goes up to 35 µg/m³ of PM2.5, the level of the US EPA's 24-hour standard. The
+            WHO's guideline is stricter, 15 µg/m³ over 24 hours, and it's the one the daily summary
+            marks, so a day can be Good on this scale and still above the WHO guideline.
+          </p>
         </Section>
 
         <Section title="Where the data comes from">
@@ -153,9 +191,9 @@ export default function Info() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
-    <Card>
+    <Card id={id} className="scroll-mt-4">
       <CardHeader>
         <h2 className="font-semibold leading-none">{title}</h2>
       </CardHeader>

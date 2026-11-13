@@ -91,6 +91,17 @@
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-critical: #d03b3b;
+  /* The MyDyson app's air quality bands, Good to Severe (lib/airQuality.ts).
+     Status colors with reserved meaning, so always beside the band's name.
+     Dark mode uses the app's own colors; these are the same hues stepped
+     darker for the white card, each 3:1 or more on it but yellow (1.9:1),
+     which turns olive before it gets there and so has an outline instead. */
+  --aq-good: #08a10c;
+  --aq-fair: #e0b800;
+  --aq-poor: #e66e00;
+  --aq-very-poor: #e52a1c;
+  --aq-extremely-poor: #d94fb0;
+  --aq-severe: #8b45f2;
   --scrollbar: #c9c9c9;
   --scrollbar-hover: #a8a8a8;
   --sidebar: #ffffff;
@@ -129,6 +140,14 @@
      normal-vision ΔE 27.2, all checks pass. */
   --series-1: #00ab95;
   --series-2: #8968f4;
+  /* As in the MyDyson app, whose card (#1d1d1d) is nearly this one: 4.1:1
+     (Severe) to 13:1 (Fair) on it. */
+  --aq-good: #00c004;
+  --aq-fair: #ffde00;
+  --aq-poor: #ff890e;
+  --aq-very-poor: #ff3022;
+  --aq-extremely-poor: #ff74d3;
+  --aq-severe: #9951ff;
   --chart-3: #a3a3a3;
   --chart-4: #a3a3a3;
   --chart-5: #a3a3a3;

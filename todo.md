@@ -17,6 +17,7 @@ use the dashboard as it is for a while before adding more.
 - [x] Read-only Schedule tab showing the schedule set in the MyDyson app
 - [x] "Sign in as admin" link for viewers
 - [x] Notes: cooking, cleaning, open windows, heating, air conditioning or other, added in a pop-up on the Dashboard and marked on its charts. Admins add and edit them; everyone sees them
+- [x] The MyDyson app's air quality scale, Good to Severe in its colors: an Air quality card with the bar, bands on the PM tiles, the indoor vs. outdoor card and the charts, and the scale explained on the Info page
 
 ## Ideas for later
 
@@ -42,6 +43,8 @@ use the dashboard as it is for a while before adding more.
   - The notes table already has what this needs: the kind, the start and the end.
 - [ ] **Notes in the daily summary**
   - The icons of each day's notes beside its row, so a bad day points to its likely cause.
+- [ ] **The Auto target on the charts**
+  - The MyDyson app draws a line for the level above which Auto speeds the fan up. Worth adding if the HJ10 reports that level in its state.
 - [ ] **Filter-life forecast**
   - Once there are a few weeks of filter readings to project from. Both filters read 99–100% in November 2026.
 
