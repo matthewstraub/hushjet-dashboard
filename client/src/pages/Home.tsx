@@ -1,3 +1,4 @@
+import { AirQualityCard, BandLabel } from "@/components/AirQuality";
 import { DailyCard } from "@/components/DailyCard";
 import { HistoryCard } from "@/components/HistoryCard";
 import { RefreshActions } from "@/components/RefreshActions";
@@ -14,6 +15,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLiveReading } from "@/hooks/useLiveReading";
+import { bandFor, type Band } from "@/lib/airQuality";
 import { ADMIN_SIGN_IN_HREF } from "@/lib/signIn";
 import { fanText, onOffText, percentText, pmText } from "@/lib/format";
 import { latestFailure } from "@/lib/status";
@@ -77,14 +79,16 @@ export default function Home() {
           </Card>
         )}
 
+        <AirQualityCard pm25={reading?.pm25} pm10={reading?.pm10} loading={loading} />
+
         <section
           aria-label="Latest reading"
           className="grid grid-cols-2 gap-4 md:grid-cols-4"
         >
-          <Tile label="PM2.5" icon={Wind} loading={loading} unit="µg/m³">
+          <Tile label="PM2.5" icon={Wind} loading={loading} unit="µg/m³" band={bandFor("pm25", reading?.pm25)}>
             {pmText(reading?.pm25, reading?.sensorStatus)}
           </Tile>
-          <Tile label="PM10" icon={Wind} loading={loading} unit="µg/m³">
+          <Tile label="PM10" icon={Wind} loading={loading} unit="µg/m³" band={bandFor("pm10", reading?.pm10)}>
             {pmText(reading?.pm10, reading?.sensorStatus)}
           </Tile>
           <Tile
@@ -177,6 +181,7 @@ function Tile({
   unit,
   loading,
   meter,
+  band,
   children,
 }: {
   label: string;
@@ -184,6 +189,8 @@ function Tile({
   unit: string;
   loading: boolean;
   meter?: number | null;
+  /** The reading's air quality band, for PM. */
+  band?: Band | null;
   children: React.ReactNode;
 }) {
   return (
@@ -203,6 +210,11 @@ function Tile({
       <CardContent className="space-y-2 text-xs text-muted-foreground">
         {meter !== undefined && (
           <Progress value={meter ?? 0} aria-label={`${label} life left`} />
+        )}
+        {band && !loading && (
+          <p>
+            <BandLabel band={band} className="font-medium text-foreground" />
+          </p>
         )}
         <p>{unit}</p>
       </CardContent>

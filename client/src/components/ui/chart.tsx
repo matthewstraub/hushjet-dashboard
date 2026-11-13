@@ -117,6 +117,7 @@ function ChartTooltipContent({
   nameKey,
   labelKey,
   footer,
+  valueExtra,
 }: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
   React.ComponentProps<"div"> & {
     hideLabel?: boolean;
@@ -126,6 +127,8 @@ function ChartTooltipContent({
     labelKey?: string;
     /** Shown under the values, like the notes at that time. */
     footer?: React.ReactNode;
+    /** Shown after a series' value, like its air quality band. */
+    valueExtra?: (dataKey: string, value: unknown) => React.ReactNode;
   }) {
   const { config } = useChart();
 
@@ -225,7 +228,8 @@ function ChartTooltipContent({
                     )}
                     <div
                       className={cn(
-                        "flex flex-1 justify-between leading-none",
+                        // A gap, so a long value, like one with its band, doesn't touch the label.
+                        "flex flex-1 justify-between gap-4 leading-none",
                         nestLabel ? "items-end" : "items-center"
                       )}
                     >
@@ -237,8 +241,11 @@ function ChartTooltipContent({
                       </div>
                       {/* 0 is a value too: clean air reads 0 µg/m³. */}
                       {item.value !== undefined && item.value !== null && (
-                        <span className="text-foreground font-mono font-medium tabular-nums">
-                          {item.value.toLocaleString()}
+                        <span className="flex items-center gap-2">
+                          <span className="text-foreground font-mono font-medium tabular-nums">
+                            {item.value.toLocaleString()}
+                          </span>
+                          {valueExtra?.(String(item.dataKey), item.value)}
                         </span>
                       )}
                     </div>

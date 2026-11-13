@@ -7,14 +7,15 @@ uses the same stack as the PetLibro and Dexcom dashboards: a Vite, React and
 Recharts client, an Express and tRPC server, Drizzle on TiDB, password
 sign-in, and a free Render web service.
 
-Signed in with the admin password, you can change the purifier's settings on
-the Controls tab: power, Auto, fan speed, night mode, the sleep timer and
-continuous monitoring. The Dashboard tab only shows them, so looking through
-the readings can't change the purifier. Notes about what was going on at
-home, like cooking, cleaning or open windows, are added in a pop-up on the
-Dashboard and marked on its charts. The Schedule tab shows the schedule set
-in the MyDyson app. The
-Info tab explains the purifier, where each number comes from, and terms like
+The Dashboard rates the air on the MyDyson app's six-band scale, Good to
+Severe, in the app's colors. Signed in with the admin password, you can
+change the purifier's settings on the Controls tab: power, Auto, fan speed,
+night mode, the sleep timer and continuous monitoring. The Dashboard tab only
+shows them, so looking through the readings can't change the purifier. Notes
+about what was going on at home, like cooking, cleaning or open windows, are
+added in a pop-up on the Dashboard and marked on its charts. The Schedule tab
+shows the schedule set in the MyDyson app. The Info tab explains the
+purifier, the air quality scale, where each number comes from, and terms like
 PM2.5, µg/m³, AQI and NO₂. The Settings tab picks light, dark, or the
 device's theme (the default), saved in each browser.
 
@@ -51,6 +52,49 @@ nor the sync needs to be on the purifier's network. The dashboard reuses a
 reading for a minute, refreshes an open tab every two minutes, and does a new
 read when you press Refresh. Every new reading is stored when `DATABASE_URL`
 is set.
+
+## Air quality scale
+
+Readings are rated on the six-band scale the MyDyson app uses, each band in
+the app's color. PM2.5 and PM10 have their own limits, in µg/m³; a reading on
+a limit is in the lower band:
+
+| Band | PM2.5 | PM10 |
+| --- | --- | --- |
+| Good | up to 35 | up to 50 |
+| Fair | up to 53 | up to 75 |
+| Poor | up to 70 | up to 100 |
+| Very poor | up to 150 | up to 350 |
+| Extremely poor | up to 250 | up to 420 |
+| Severe | over 250 | over 420 |
+
+- **Where it shows:**
+  - an Air quality card at the top of the Dashboard: the worse of the two
+    readings, which pollutant that is (the app's "Dominant"), and the scale
+    as a bar with a marker;
+  - the band of each reading on the PM tiles and in the indoor vs. outdoor
+    card;
+  - each value's band in the chart tooltips;
+  - a strip of bands beside the axis of the PM2.5 chart. The PM2.5 and PM10
+    chart has none, since one strip can't fit both scales.
+  - The Info page explains each band.
+- **Where the limits come from:** Dyson doesn't publish them. These are the
+  ones the app shows, as recorded by the
+  [hass-dyson](https://github.com/cmgrayb/hass-dyson) Home Assistant
+  integration and the [DysonBar](https://github.com/jx-grxf/DysonBar) app,
+  which agree. They're in
+  [`client/src/lib/airQuality.ts`](client/src/lib/airQuality.ts).
+- **Colors:**
+  - **Dark mode** uses the app's own colors, sampled from its screens. They're
+    4:1 to 13:1 on the dark card.
+  - **Light mode** uses the same hues stepped darker for the white card,
+    each 3:1 or more there except yellow, which turns olive first.
+  - **Status colors:** the bands only ever appear beside the band's name or
+    the reading, never as series colors.
+- **Against the WHO guideline:** Good goes up to 35 µg/m³ of PM2.5, the US
+  EPA's 24-hour standard. The daily summary marks the WHO's stricter
+  guideline, 15 µg/m³ over 24 hours, so a day can be Good on the scale and
+  still above the guideline.
 
 ## Status
 
